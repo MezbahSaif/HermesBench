@@ -5,8 +5,16 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 
+# Generated plots (selftest / report artifacts)
+analysis/plots/
+
 # Virtualenv
 .venv/
+
+# Machine-local toolchain (kept on the project drive, never shared)
+.python/
+.pip-cache/
+.uv-cache/
 
 # Benchmark outputs (machine-specific; generated per machine)
 runs/

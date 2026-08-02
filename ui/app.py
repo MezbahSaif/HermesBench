@@ -122,10 +122,10 @@ with st.sidebar:
     st.divider()
     col1, col2 = st.columns(2)
     with col1:
-        start = st.button("Start", disabled=running, use_container_width=True)
+        start = st.button("Start", disabled=running, width="stretch")
     with col2:
-        resume = st.button("Resume", disabled=running, use_container_width=True)
-    dry = st.button("Dry run", disabled=running, use_container_width=True)
+        resume = st.button("Resume", disabled=running, width="stretch")
+    dry = st.button("Dry run", disabled=running, width="stretch")
     if running:
         st.warning("Benchmark is running...")
 
@@ -203,15 +203,15 @@ if active_run:
             ["Metrics table", "Summary", "Statistics", "Graphs"]
         )
         with tab1:
-            st.dataframe(df, use_container_width=True, height=420)
+            st.dataframe(df, width="stretch", height=420)
         with tab2:
             from benchmark.benchmark_runner import BenchmarkRunner
             summary = BenchmarkRunner.summary_table(df)
-            st.dataframe(summary, use_container_width=True)
+            st.dataframe(summary, width="stretch")
         with tab3:
             from analysis.statistics import compare_arms
             rep = compare_arms(df)
-            st.dataframe(rep, use_container_width=True, height=400)
+            st.dataframe(rep, width="stretch", height=400)
             if not rep.empty:
                 sig = rep[rep["trend_significant"]]
                 st.info(

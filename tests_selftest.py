@@ -343,6 +343,13 @@ check("restore_workspace no-op without pristine",
 vt = load_tasks(ROOT / "datasets" / "variants" / "round_1_se.csv")
 missing = [t.task_id for t in vt if not t.workdir.parent.joinpath("pristine").is_dir()]
 check(f"all variant tasks have pristine (missing={missing})", not missing)
+# every v1 task in the real dataset has a workdir + pristine snapshot
+v1 = load_tasks(ROOT / "datasets" / "benchmark.csv")
+missing_work = [t.task_id for t in v1 if not t.workdir.is_dir()]
+missing_pristine = [t.task_id for t in v1
+                    if not t.workdir.parent.joinpath("pristine").is_dir()]
+check(f"all v1 tasks have workdir (missing={missing_work})", not missing_work)
+check(f"all v1 tasks have pristine (missing={missing_pristine})", not missing_pristine)
 shutil.rmtree(iso)
 
 # --- metrics engine (csv + xlsx + plots + verdict) --------------------------
