@@ -1,0 +1,75 @@
+# =============================================================================
+# HermesBench configuration
+# Benchmark framework for evaluating the claim that Hermes Agent is a
+# "self-improving AI agent" (Nous Research learning loop: skills + memory).
+# =============================================================================
+
+project:
+  name: HermesBench
+  dataset: "datasets/benchmark.csv"
+  research_question: >-
+    Does Hermes Agent demonstrate measurable self-improvement over repeated
+    benchmark execution (faster, more accurate, fewer tool calls, fewer
+    retries, fewer errors)?
+
+hermes:
+  # Path to the hermes CLI executable (one-shot headless mode is used).
+  # ${LOCALAPPDATA} expands to the Windows per-user app-data folder, so
+  # this config works on any machine (auto-detected if missing anyway).
+  executable: "${LOCALAPPDATA}/hermes/hermes-agent/venv/Scripts/hermes.exe"
+  # The user's real Hermes home. Used ONLY to seed the isolated benchmark
+  # homes (config.yaml + .env). Never written to directly.
+  real_home: "${LOCALAPPDATA}/hermes"
+  # Leave empty to use whatever the seeded config.yaml defines.
+  model: ""
+  provider: ""
+  # Extra CLI flags for `hermes -z` (one-shot mode already auto-enables
+  # yolo-mode and hook auto-accept).
+  extra_args: []
+  # Per-invocation wall-clock timeout in seconds.
+  timeout_s: 900
+
+lmstudio:
+  base_url: "http://127.0.0.1:1234/v1"
+  # Empty = use the same model as hermes. A stronger judge model reduces
+  # self-grading bias, but same-model judging is a documented limitation.
+  judge_model: ""
+  judge_api_key: "lm-studio"
+  judge_timeout_s: 180
+
+benchmark:
+  # Number of full passes over the task battery (each pass = one round).
+  rounds: 3
+  # Which arms to run: treatment (learning loop ON across rounds),
+  # control (state reset every round), or both.
+  arms: ["treatment", "control"]
+  # Limit number of tasks per round (None = all).
+  task_limit: null
+  # Score threshold above which a task counts as passed.
+  pass_threshold: 0.7
+  # Total wall-clock timeout per task.
+  task_timeout_s: 900
+
+log_metrics:
+  # Patterns counted in the agent log within each task's [start, end] window.
+  # These are heuristic signals; see README for caveats.
+  tool_call_patterns:
+    - "tool call"
+    - "executing tool"
+    - "tool execution"
+    - "tool result"
+  error_patterns:
+    - "ERROR"
+    - "Traceback"
+    - "Exception"
+    - "Command failed"
+    - "exit code"
+  retry_patterns:
+    - "retry"
+    - "Retrying"
+    - "max_retries"
+  reflection_patterns:
+    - "reflection"
+    - "Reflecting"
+    - "self-critique"
+    - "rethink"

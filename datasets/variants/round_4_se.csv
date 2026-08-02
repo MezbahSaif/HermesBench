@@ -1,0 +1,262 @@
+task_id,family,category,prompt,check_type,expected,threshold,rubric,banned
+bug_fix_scheduling_wrong_key,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: main.py.
+
+TASK: The module `main.py` contains a software defect (shift-scheduling logic). Find the bug and fix it IN PLACE in main.py (overlap detection, merging, hours). Do not change the module's public API, do not add new dependencies, do not weaken behavior.
+Files in the workdir are yours to edit.
+Difficulty: medium (a ~40-line module with a seeded logic bug).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the fixed module passes all of the project's unit tests (run them if you can).",file_code_exec,"main.py
+a = mod.Shift(""a"", 0, 2)
+b = mod.Shift(""b"", 2, 4)
+check(""no touch overlap"", not mod.is_overlap(a, b))
+check(""real overlap"", mod.is_overlap(a, mod.Shift(""x"", 1, 3)))
+m = mod.merge_shifts([mod.Shift(""a"", 4, 6), mod.Shift(""a"", 0, 2), mod.Shift(""a"", 1, 3)])
+check(""merge pairs"", len(m) == 2)
+check(""merge keeps last"", m[-1].end == 6)
+m2 = mod.merge_shifts([mod.Shift(""a"", 0, 2), mod.Shift(""a"", 2, 4)])
+check(""merge touching"", len(m2) == 1)
+check(""total hours"",
+      mod.total_hours([mod.Shift(""a"", 0, 2), mod.Shift(""b"", 3, 8)]) == 7)
+check(""empty total"", mod.total_hours([]) == 0)
+check(""merge does not mutate"", (lambda s: (mod.merge_shifts(s), len(s)))([mod.Shift(""a"", 1, 3), mod.Shift(""a"", 0, 2)])[1] == 2)
+",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",
+bug_fix_finance_bad_default,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: main.py.
+
+TASK: The module `main.py` contains a software defect (invoice total computation). Find the bug and fix it IN PLACE in main.py (invoice parsing, subtotal, bulk discount, tax). Do not change the module's public API, do not add new dependencies, do not weaken behavior.
+Files in the workdir are yours to edit.
+Difficulty: medium (a ~50-line module with a seeded logic bug).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the fixed module passes all of the project's unit tests (run them if you can).",file_code_exec,"main.py
+check(""parses 3 rows"",
+      len(mod.parse_lines([""a,x,2,1.5"", ""b,y,3,2.0"", ""c,z,1,0.5""])) == 3)
+check(""skips malformed"",
+      len(mod.parse_lines([""a,x,2,1.5"", ""oops"", ""b,y,3,2.0""])) == 2)
+items = mod.parse_lines([""a,x,2,1.5"", ""b,y,3,2.0""])
+check(""subtotal"", mod.compute_subtotal(items) == 9.0)
+check(""subtotal counts last item"",
+      mod.compute_subtotal(mod.parse_lines([""a,x,1,1.0"", ""b,y,1,1.0"", ""c,z,1,1.0""])) == 3.0)
+check(""bulk at boundary"", mod.apply_bulk_discount(500.0) == 450.0)
+check(""bulk above"", mod.apply_bulk_discount(600.0) == 540.0)
+check(""no bulk below"", mod.apply_bulk_discount(499.99) == 499.99)
+check(""tax default"", mod.compute_tax(100.0) == 7.5)
+check(""tax explicit"", mod.compute_tax(100.0, 0.10) == 10.0)
+check(""qty matters"", mod.compute_subtotal(mod.parse_lines([""a,x,4,1.0""])) == 4.0)
+",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",
+cli_word_freq,cli_tool,se_complex,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, text.txt.
+
+TASK: Build a small command-line tool from the spec in `README.md` (word frequency CLI). Create `cli.py` in the workdir using argparse (flags exactly as documented in the spec). The tool must read the data file from the current directory and print output to stdout in the exact format shown in the spec.
+Difficulty: complex (CLI contract must match exactly).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input text.txt --top 3
+the:4
+cat:2
+dog:2",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",
+cli_sales,cli_tool,se_complex,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, orders.csv.
+
+TASK: Build a small command-line tool from the spec in `README.md` (sales summary CLI). Create `cli.py` in the workdir using argparse (flags exactly as documented in the spec). The tool must read the data file from the current directory and print output to stdout in the exact format shown in the spec.
+Difficulty: complex (CLI contract must match exactly).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input orders.csv --top 2
+Widget:10.50
+Gadget:4.00",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",
+docker_cron_worker,docker_configure,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: worker.py, requirements.txt, README.md.
+
+TASK: Containerize the project in the workdir (a scheduled worker script). Create a `Dockerfile` and a `docker-compose.yml` that follow current best practices (slim base image pinned to a major version, workdir set, dependencies installed from `requirements.txt`, non-default exposed port, healthcheck where reasonable). The compose service must build from the local Dockerfile, publish the app port, and mount the app as a volume.
+Difficulty: medium (containerization conventions).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: a valid Dockerfile and compose file that would build and run the app.",file_contains,"Dockerfile|FROM python:3.11-slim
+Dockerfile|WORKDIR /app
+Dockerfile|COPY
+Dockerfile|RUN pip install
+Dockerfile|CMD
+docker-compose.yml|services:
+docker-compose.yml|build:
+docker-compose.yml|restart:",0.70,"docker_configure (medium): correct, working solution that satisfies every automated check.",
+docker_streamlit_dashboard,docker_configure,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: app.py, requirements.txt, README.md.
+
+TASK: Containerize the project in the workdir (a Streamlit dashboard). Create a `Dockerfile` and a `docker-compose.yml` that follow current best practices (slim base image pinned to a major version, workdir set, dependencies installed from `requirements.txt`, non-default exposed port, healthcheck where reasonable). The compose service must build from the local Dockerfile, publish the app port, and mount the app as a volume.
+Difficulty: medium (containerization conventions).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: a valid Dockerfile and compose file that would build and run the app.",file_contains,"Dockerfile|FROM python:3.11-slim
+Dockerfile|WORKDIR /app
+Dockerfile|COPY
+Dockerfile|RUN pip install
+Dockerfile|CMD
+Dockerfile|EXPOSE 8501
+docker-compose.yml|services:
+docker-compose.yml|build:
+docker-compose.yml|ports:
+docker-compose.yml|8501",0.70,"docker_configure (medium): correct, working solution that satisfies every automated check.",
+fastapi_todos,fastapi_setup,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, data.json.
+
+TASK: Build a small FastAPI application from the spec in `README.md` (todo list API). Create `app.py` (and `requirements.txt` if needed) in the workdir. Follow the spec exactly: endpoints, status codes, error handling (404 for missing resources), and request/response shapes.
+Difficulty: medium (multi-endpoint API with error handling).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every endpoint from the spec exists with the documented behavior.",file_contains,"app.py|from fastapi import FastAPI, HTTPException
+app.py|app = FastAPI(
+app.py|@app.get(""/todos""
+app.py|@app.get(""/todos/{todo_id}""
+app.py|@app.post(""/todos""
+app.py|@app.delete(""/todos/{todo_id}""
+app.py|raise HTTPException(status_code=404
+requirements.txt|fastapi",0.70,"fastapi_setup (medium): correct, working solution that satisfies every automated check.",
+fastapi_orders,fastapi_setup,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, data.json.
+
+TASK: Build a small FastAPI application from the spec in `README.md` (order API that computes totals). Create `app.py` (and `requirements.txt` if needed) in the workdir. Follow the spec exactly: endpoints, status codes, error handling (404 for missing resources), and request/response shapes.
+Difficulty: medium (multi-endpoint API with error handling).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every endpoint from the spec exists with the documented behavior.",file_contains,"app.py|from fastapi import FastAPI, HTTPException
+app.py|app = FastAPI(
+app.py|@app.get(""/orders""
+app.py|@app.get(""/orders/{order_id}""
+app.py|@app.post(""/orders""
+app.py|raise HTTPException(status_code=404
+app.py|""total""
+requirements.txt|fastapi",0.70,"fastapi_setup (medium): correct, working solution that satisfies every automated check.",
+implement_max_profit,implement_function,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: solution.py.
+
+TASK: Implement the function described in `solution.py` (maximum profit from one buy and one sell). Replace the `raise NotImplementedError` body with a correct, efficient implementation in `solution.py`. Handle edge cases (empty inputs, boundaries). Do not change the signature. The project's hidden unit tests will be run against your file.
+Difficulty: hard (non-trivial algorithm, edge cases).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every hidden unit test passes.",file_code_exec,"solution.py
+check(""example"", mod.max_profit([7, 1, 5, 3, 6, 4]) == 5.0)
+check(""strictly falling"", mod.max_profit([5, 4, 3, 2, 1]) == 0.0)
+check(""single"", mod.max_profit([3]) == 0.0)
+check(""empty"", mod.max_profit([]) == 0.0)
+check(""later only"", mod.max_profit([10, 1, 1, 1]) == 0.0)
+check(""big jump"", mod.max_profit([1, 2, 3, 100, 0, 50]) == 99.0)
+check(""float"", mod.max_profit([1.5, 2.5, 1.0]) == 1.0)
+",0.70,"implement_function (hard): correct, working solution that satisfies every automated check.",
+implement_edit_distance,implement_function,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: solution.py.
+
+TASK: Implement the function described in `solution.py` (Levenshtein edit distance). Replace the `raise NotImplementedError` body with a correct, efficient implementation in `solution.py`. Handle edge cases (empty inputs, boundaries). Do not change the signature. The project's hidden unit tests will be run against your file.
+Difficulty: hard (non-trivial algorithm, edge cases).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every hidden unit test passes.",file_code_exec,"solution.py
+check(""example"", mod.edit_distance(""kitten"", ""sitting"") == 3)
+check(""identical"", mod.edit_distance(""abc"", ""abc"") == 0)
+check(""empty vs"", mod.edit_distance("""", ""xyz"") == 3)
+check(""vs empty"", mod.edit_distance(""abc"", """") == 3)
+check(""one char"", mod.edit_distance(""a"", ""b"") == 1)
+check(""insertion"", mod.edit_distance(""abc"", ""abxc"") == 1)
+check(""long"", mod.edit_distance(""abcdef"", ""azced"") == 3)
+",0.70,"implement_function (hard): correct, working solution that satisfies every automated check.",
+refactor_config,refactor,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: ugly.py.
+
+TASK: Refactor `ugly.py` (config validator with global error buffer and duplicated checks). The code works but violates basic engineering standards: it relies on module-level global state and duplicate logic. Rewrite it as clean, well-structured code: split the logic into small focused functions with docstrings, use module-level constants instead of mutable globals, and remove all duplicated blocks. The public API (function names and signatures) must stay identical and the behavior must be preserved exactly.
+Difficulty: medium-hard (structural refactor, behavior must not change).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: all hidden unit tests pass AND no global-state anti-patterns remain.",file_code_exec,"ugly.py
+check(""valid cfg"",
+      mod.validate({""name"": ""api"", ""port"": 8080, ""hosts"": [""a""]}) == [])
+check(""missing name once"", mod.validate({""port"": 8080}).count(""missing name"") == 1)
+check(""port type"", mod.validate({""name"": ""x"", ""port"": ""8080""})
+      == [""port must be int""])
+check(""empty hosts once"",
+      mod.validate({""name"": ""x"", ""port"": 1, ""hosts"": []}).count(""hosts empty"") == 1)
+check(""all problems"", sorted(mod.validate({}))
+      == sorted([""missing name"", ""port must be int""]))
+check(""no globals leak"", mod.validate({""name"": ""a"", ""port"": 1}) == [])
+",0.70,"refactor (medium): correct, working solution that satisfies every automated check.",global ;_errs
+refactor_logs,refactor,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: ugly.py.
+
+TASK: Refactor `ugly.py` (log summarizer with global counters and duplicated counting). The code works but violates basic engineering standards: it relies on module-level global state and duplicate logic. Rewrite it as clean, well-structured code: split the logic into small focused functions with docstrings, use module-level constants instead of mutable globals, and remove all duplicated blocks. The public API (function names and signatures) must stay identical and the behavior must be preserved exactly.
+Difficulty: medium-hard (structural refactor, behavior must not change).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: all hidden unit tests pass AND no global-state anti-patterns remain.",file_code_exec,"ugly.py
+logs = [""2024-01-01 ERROR boot"", ""2024-01-01 WARN slow"",
+         ""2024-01-01 ERROR retry"", ""2024-01-01 INFO ok""]
+check(""counts levels"", mod.summarize(logs) == [""ERROR:2"", ""INFO:1"", ""WARN:1""])
+check(""empty"", mod.summarize([]) == [])
+check(""single"", mod.summarize([""2024-01-01 ERROR x""]) == [""ERROR:1""])
+",0.70,"refactor (medium): correct, working solution that satisfies every automated check.",global ;_counts
+write_tests_temperature,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: good.py, buggy.py.
+
+TASK: The project contains two versions of the same module: `good.py` (correct) and `buggy.py` (one deliberately seeded defect). Your job is to write a unit test suite that would catch the defect (average truncates instead of rounding). Requirements:
+1. Every test must pass against the correct module.
+2. At least one test must FAIL against the buggy module.
+3. Use `import mod` to reach the module under test and write plain functions named `test_*` containing `assert` statements (no test framework needed). Cover edge cases, not just happy paths.
+Difficulty: hard (test design; the bug is subtle).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Your test code must be the ONLY code block in your reply.",test_suite,"GOOD_MODULE=good.py
+BUGGY_MODULE=buggy.py",0.70,"write_tests (hard): correct, working solution that satisfies every automated check.",
+write_tests_stats,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: good.py, buggy.py.
+
+TASK: The project contains two versions of the same module: `good.py` (correct) and `buggy.py` (one deliberately seeded defect). Your job is to write a unit test suite that would catch the defect (median mutates its input list). Requirements:
+1. Every test must pass against the correct module.
+2. At least one test must FAIL against the buggy module.
+3. Use `import mod` to reach the module under test and write plain functions named `test_*` containing `assert` statements (no test framework needed). Cover edge cases, not just happy paths.
+Difficulty: hard (test design; the bug is subtle).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Your test code must be the ONLY code block in your reply.",test_suite,"GOOD_MODULE=good.py
+BUGGY_MODULE=buggy.py",0.70,"write_tests (hard): correct, working solution that satisfies every automated check.",

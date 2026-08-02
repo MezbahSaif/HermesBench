@@ -1,0 +1,8 @@
+--- round 1/1 arm=treatment ---
+  [1/5] prog_bubble_sort: status=ok score=1.0 dur=42.2s
+  [2/5] res_explain_concept: status=ok score=0.95 dur=88.8s
+  [3/5] term_create_config: status=ok score=0.0 dur=30.7s
+  [4/5] reason_logic: status=ok score=0.0 dur=37.3s
+  [5/5] reason_error_hunt: status=ok score=1.0 dur=15.0s
+benchmark finished in 225s; 5 task executions
+xlsx write skipped: At least one sheet must be visible

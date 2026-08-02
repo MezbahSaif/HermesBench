@@ -1,0 +1,10 @@
+--- round 1/1 arm=treatment ---
+  [1/3] prog_bubble_sort: status=ok score=1.0 dur=29.9s
+  [2/3] reason_logic: status=ok score=0.0 dur=32.0s
+  [3/3] reason_error_hunt: status=ok score=1.0 dur=15.0s
+--- round 1/1 arm=control ---
+  [1/3] prog_bubble_sort: status=ok score=1.0 dur=28.6s
+  [2/3] reason_logic: status=ok score=1.0 dur=39.5s
+  [3/3] reason_error_hunt: status=ok score=1.0 dur=14.7s
+benchmark finished in 160s; 6 task executions
+xlsx written: D:\Trying hermes\HermesBench\runs\e2e\results.xlsx

@@ -1,0 +1,589 @@
+{
+  "generator_version": "2.0-se",
+  "seed": 42,
+  "families": [
+    "bug_fix",
+    "cli_tool",
+    "docker_configure",
+    "fastapi_setup",
+    "implement_function",
+    "refactor",
+    "write_tests"
+  ],
+  "per_family_per_round": 2,
+  "rounds": 5,
+  "generated_at": "2026-08-02T17:32:35",
+  "task_sets": {
+    "round_1": [
+      {
+        "task_id": "bug_fix_text_wrong_regex",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "bug_fix_text_offbyone",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "cli_filter",
+        "family": "cli_tool",
+        "reused": false,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "cli_json_pretty",
+        "family": "cli_tool",
+        "reused": false,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "docker_streamlit_dashboard",
+        "family": "docker_configure",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "docker_cron_worker",
+        "family": "docker_configure",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_catalog",
+        "family": "fastapi_setup",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_todos",
+        "family": "fastapi_setup",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "implement_knapsack",
+        "family": "implement_function",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "implement_lru_cache",
+        "family": "implement_function",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "refactor_invoice",
+        "family": "refactor",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "refactor_config",
+        "family": "refactor",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "write_tests_temperature",
+        "family": "write_tests",
+        "reused": false,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "write_tests_stats",
+        "family": "write_tests",
+        "reused": false,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      }
+    ],
+    "round_2": [
+      {
+        "task_id": "bug_fix_scheduling_offbyone",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "bug_fix_finance_wrong_accum",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "cli_sales",
+        "family": "cli_tool",
+        "reused": false,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "cli_word_freq",
+        "family": "cli_tool",
+        "reused": false,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "docker_flask_api",
+        "family": "docker_configure",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "docker_streamlit_dashboard",
+        "family": "docker_configure",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_orders",
+        "family": "fastapi_setup",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_todos",
+        "family": "fastapi_setup",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "implement_flatten_json",
+        "family": "implement_function",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "implement_merge_intervals",
+        "family": "implement_function",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "refactor_logs",
+        "family": "refactor",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "refactor_config",
+        "family": "refactor",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "write_tests_urlparser",
+        "family": "write_tests",
+        "reused": false,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "write_tests_banking",
+        "family": "write_tests",
+        "reused": false,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      }
+    ],
+    "round_3": [
+      {
+        "task_id": "bug_fix_finance_wrong_compare",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "bug_fix_finance_offbyone",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "cli_filter",
+        "family": "cli_tool",
+        "reused": true,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "cli_json_pretty",
+        "family": "cli_tool",
+        "reused": true,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "docker_cron_worker",
+        "family": "docker_configure",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "docker_flask_api",
+        "family": "docker_configure",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_catalog",
+        "family": "fastapi_setup",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_orders",
+        "family": "fastapi_setup",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "implement_max_profit",
+        "family": "implement_function",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "implement_edit_distance",
+        "family": "implement_function",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "refactor_invoice",
+        "family": "refactor",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "refactor_logs",
+        "family": "refactor",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "write_tests_cart",
+        "family": "write_tests",
+        "reused": false,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "write_tests_temperature",
+        "family": "write_tests",
+        "reused": true,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      }
+    ],
+    "round_4": [
+      {
+        "task_id": "bug_fix_scheduling_wrong_key",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "bug_fix_finance_bad_default",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "cli_word_freq",
+        "family": "cli_tool",
+        "reused": true,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "cli_sales",
+        "family": "cli_tool",
+        "reused": true,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "docker_cron_worker",
+        "family": "docker_configure",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "docker_streamlit_dashboard",
+        "family": "docker_configure",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_todos",
+        "family": "fastapi_setup",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_orders",
+        "family": "fastapi_setup",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "implement_max_profit",
+        "family": "implement_function",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "implement_edit_distance",
+        "family": "implement_function",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "refactor_config",
+        "family": "refactor",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "refactor_logs",
+        "family": "refactor",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "write_tests_temperature",
+        "family": "write_tests",
+        "reused": true,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "write_tests_stats",
+        "family": "write_tests",
+        "reused": true,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      }
+    ],
+    "round_5": [
+      {
+        "task_id": "bug_fix_scheduling_wrong_compare",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "bug_fix_text_wrong_compare",
+        "family": "bug_fix",
+        "reused": false,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "cli_sales",
+        "family": "cli_tool",
+        "reused": true,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "cli_word_freq",
+        "family": "cli_tool",
+        "reused": true,
+        "validated": true,
+        "check_type": "command_check",
+        "difficulty": "complex"
+      },
+      {
+        "task_id": "docker_flask_api",
+        "family": "docker_configure",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "docker_cron_worker",
+        "family": "docker_configure",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_orders",
+        "family": "fastapi_setup",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "fastapi_catalog",
+        "family": "fastapi_setup",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_contains",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "implement_max_profit",
+        "family": "implement_function",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "implement_flatten_json",
+        "family": "implement_function",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "refactor_invoice",
+        "family": "refactor",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "refactor_config",
+        "family": "refactor",
+        "reused": true,
+        "validated": true,
+        "check_type": "file_code_exec",
+        "difficulty": "medium"
+      },
+      {
+        "task_id": "write_tests_temperature",
+        "family": "write_tests",
+        "reused": true,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      },
+      {
+        "task_id": "write_tests_stats",
+        "family": "write_tests",
+        "reused": true,
+        "validated": true,
+        "check_type": "test_suite",
+        "difficulty": "hard"
+      }
+    ]
+  },
+  "rejected": []
+}
