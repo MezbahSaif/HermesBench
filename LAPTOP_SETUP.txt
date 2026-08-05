@@ -1,0 +1,77 @@
+========================================================================
+ HERMESBENCH - LAPTOP SETUP & DEMO INSTRUCTIONS (for opencode on laptop)
+========================================================================
+Goal: reproduce the analysis results and demo dashboard on this laptop.
+NOTE: This laptop does NOT need LM Studio or the hermes agent binary.
+Only the analysis + dashboard parts of the repo are used for the demo.
+
+------------------------------------------------------------------------
+STEP 0 - GET THE REPOSITORY
+------------------------------------------------------------------------
+1. If the repo is NOT yet on this laptop:
+     git clone https://github.com/MezbahSaif/HermesBench.git
+     cd HermesBench
+2. If a USB copy was used instead, copy the folder (excluding .venv,
+   .python, runs) and cd into it.
+3. IMPORTANT: the results data (metrics.csv, plots) is NOT in git
+   (runs/ and analysis/plots/ are gitignored). It must be copied from
+   the PC where the benchmark ran. See STEP 2.
+
+------------------------------------------------------------------------
+STEP 1 - CREATE VENV AND INSTALL DEPENDENCIES
+------------------------------------------------------------------------
+0. IMPORTANT - INSTALL LOCATION:
+   Nothing may be installed on the C: drive. Put the repo (and the
+   .venv + all packages) on a non-C: drive (e.g. D:\ or E:\).
+   - Clone/copy the repo to e.g.  D:\HermesBench  (NOT into a C: path).
+   - The venv and pip-installed packages will live inside that folder,
+     so no system-wide C: installations happen.
+   - Do NOT run "pip install" with --user or --system flags.
+   - If python is only installed on C: (a real OS python), that is
+     acceptable to LAUNCH the venv with, but the venv itself must be
+     created inside the repo folder on the non-C: drive.
+1. On Windows (PowerShell), from the repo folder on the non-C: drive:
+     py -3.11 -m venv .venv
+     .\.venv\Scripts\python -m pip install --upgrade pip
+     .\.venv\Scripts\python -m pip install -r requirements.txt
+2. Verify the install:
+     .\.venv\Scripts\python -c "import pandas, numpy, matplotlib, yaml, scipy, streamlit; print('OK')"
+   If it prints OK, all analysis dependencies are ready.
+
+------------------------------------------------------------------------
+STEP 2 - COPY THE RUN RESULTS FROM THE PC (required)
+------------------------------------------------------------------------
+Ask the user to provide the run data (from the PC where the benchmark
+ran). Copy it into this repo BEFORE running any analysis. Expected:
+   runs\<run-id>\metrics.csv          <- the per-task/per-round scores
+   analysis\plots\*.png               <- pre-generated trend graphs
+Typical transfer: USB stick or shared cloud folder.
+If metrics.csv is missing, STOP and tell the user: analysis cannot run
+without the metrics.csv of the completed 5-round experiment.
+
+------------------------------------------------------------------------
+STEP 3 - GENERATE PLOTS AND REPORT
+------------------------------------------------------------------------
+1. Plots (PNG files -> analysis/plots/):
+     .\.venv\Scripts\python analysis\graphs.py --csv runs\<run-id>\metrics.csv
+2. Text report (verdict on the self-improvement claim):
+     .\.venv\Scripts\python analysis\report.py --csv runs\<run-id>\metrics.csv
+3. Tell the user where the outputs are and summarize the verdict lines.
+
+------------------------------------------------------------------------
+STEP 4 - INTERACTIVE DASHBOARD (optional, for the live demo)
+------------------------------------------------------------------------
+     .\.venv\Scripts\python -m streamlit run ui\app.py
+It reads runs\<run-id>\metrics.csv automatically. Keep the terminal
+open; the browser tab shows the dashboard.
+
+------------------------------------------------------------------------
+DO NOT
+------------------------------------------------------------------------
+- Do NOT install anything on the C: drive. Keep repo, .venv, and all
+  packages on a non-C: drive only.
+- Do NOT run benchmark\run_benchmark.py on this laptop (it needs the
+  hermes agent + LM Studio from the PC).
+- Do NOT modify any dataset CSVs or task files.
+- Do NOT commit .env or any copied runs/ data to git.
+========================================================================
