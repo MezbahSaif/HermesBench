@@ -44,6 +44,7 @@ METRIC_COLUMNS = [
 _STRING_COLUMNS = {
     "run_id", "arm", "task_id", "family", "category", "status",
     "score_detail", "completed_at",
+    "passed", "timed_out", "session_id",
 }
 
 
@@ -420,6 +421,15 @@ class BenchmarkRunner:
     # ---------------------------------------------------------------- utils
     def _flush_metrics(self) -> pd.DataFrame:
         df = pd.DataFrame(self.rows, columns=METRIC_COLUMNS)
+        # Resumed rows arrive as "True"/"False" strings (kept by
+        # _STRING_COLUMNS); normalize to real booleans so the CSV round-trips
+        # and the end-of-run analysis (build_summary/verdict .mean()) sees
+        # proper bools instead of truthy strings.
+        for col in ("passed", "timed_out"):
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.strip().str.lower().isin(
+                    ("true", "1")
+                )
         df.to_csv(self.metrics_path, index=False)
         return df
 
