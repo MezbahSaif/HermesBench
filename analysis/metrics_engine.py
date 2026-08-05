@@ -3,7 +3,8 @@
 Pipeline stage after the deterministic graders:
 
     metrics.csv (raw rows)
-        -> results.xlsx (metrics, summary, trends, recovery sheets)
+        -> results.xlsx (metrics, summary, improvement, gain, families,
+                         regression, trends, recovery sheets)
         -> plots/       (PNGs per metric, per arm)
         -> console verdict (compact)
 

@@ -364,8 +364,9 @@ check("engine writes results.xlsx", res["xlsx"] is not None
 check(f"engine writes plots ({len(res['plots'])})", len(res["plots"]) >= 8)
 with pd.ExcelFile(res["xlsx"]) as xf:
     sheets = xf.sheet_names
-check(f"xlsx has 4 sheets (got {sheets})",
-      sheets == ["metrics", "summary", "trends", "recovery"])
+check(f"xlsx has 8 sheets (got {sheets})",
+      sheets == ["metrics", "summary", "improvement", "gain", "families",
+                 "regression", "trends", "recovery"])
 trends = pd.read_excel(res["xlsx"], sheet_name="trends")
 check("trends sheet has tau/p columns",
       {"tau", "trend_p", "trend_significant"} <= set(trends.columns))
