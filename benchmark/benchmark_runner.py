@@ -38,6 +38,14 @@ METRIC_COLUMNS = [
     "completed_at",
 ]
 
+# Columns that stay text; everything else is numeric and is coerced when
+# loading existing metrics.csv rows so resumed runs keep proper dtypes
+# (build_summary / verdict run .mean() over these).
+_STRING_COLUMNS = {
+    "run_id", "arm", "task_id", "family", "category", "status",
+    "score_detail", "completed_at",
+}
+
 
 def restore_workspace(task: Task) -> bool:
     """Restore the task workdir from its pristine snapshot, if one exists.
@@ -106,6 +114,12 @@ class BenchmarkRunner:
                 self.done.add(
                     (int(float(r["round"])), r["arm"], r["task_id"])
                 )
+                row = r.to_dict()
+                for col, val in row.items():
+                    if col in _STRING_COLUMNS:
+                        continue
+                    row[col] = pd.to_numeric(val, errors="coerce")
+                self.rows.append(row)
             self.logger(f"[resume] found {len(self.done)} completed task rows")
 
         # Load tasks once (applies limit / filters).

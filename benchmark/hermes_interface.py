@@ -127,7 +127,6 @@ class HermesInterface:
 
         env = os.environ.copy()
         env["HERMES_HOME"] = str(self.home_dir)
-        env["PYTHONIOENCODING"] = "utf-8"
 
         if not task.workdir.exists():
             print(

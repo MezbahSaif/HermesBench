@@ -383,6 +383,37 @@ check("summary table rows = rounds x arms",
       len(summ) == len(df["round"].unique()) * len(df["arm"].unique()))
 shutil.rmtree(engine_dir)
 
+# --- resumed runs must accumulate rows across invocations ------------------
+# Regression test: _flush_metrics overwrites metrics.csv, so a resumed round
+# must re-load the existing rows (with numeric dtypes) or rounds 1..N-1 are
+# silently erased. Exercises BenchmarkRunner.__init__ + _flush_metrics only.
+from benchmark.config_loader import load_config
+from benchmark.benchmark_runner import BenchmarkRunner, METRIC_COLUMNS
+
+resume_dir = Path(tempfile.mkdtemp(prefix="selftest_resume_"))
+old = [dict(zip(METRIC_COLUMNS, [None] * len(METRIC_COLUMNS)))]
+old[0].update(run_id="rt", round=1, arm="treatment",
+              task_id="bug_fix_text_offbyone", family="bug_fix",
+              category="se_medium", status="ok", passed=True, score=0.75,
+              threshold=0.7, duration_s=123.4, response_chars=100,
+              api_calls=5, human_interventions=0,
+              completed_at="2026-08-05T10:00:00")
+pd.DataFrame(old).to_csv(resume_dir / "metrics.csv", index=False)
+rcfg = load_config(ROOT / "config" / "config.yaml")
+r = BenchmarkRunner(rcfg, resume_dir, "rt", ["treatment"], 5,
+                    resume=True, dry_run=True, round_no=2)
+acc = r._flush_metrics()
+check("resume loads existing rows", len(acc) == 1)
+check("resume keeps numeric dtypes", acc["score"].dtype.kind in "fiu")
+new = dict(acc.iloc[0].to_dict())
+new["round"] = 2
+new["score"] = 1.0
+r.rows.append(new)
+acc2 = r._flush_metrics()
+check("resume appends without erasing", len(acc2) == 2
+      and set(acc2["round"]) == {1, 2})
+shutil.rmtree(resume_dir)
+
 print()
 if failures:
     print(f"{len(failures)} FAILURES: {failures}")

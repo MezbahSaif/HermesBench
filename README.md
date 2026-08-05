@@ -47,8 +47,9 @@ taskkill /F /IM hermes.exe
   `--run-id thesis_run`; add `--resume` after the first chunk.
 - Never delete `runs\thesis_run\` between rounds.
 - The v1 default dataset (`datasets/benchmark.csv`) is **not** the experiment —
-  always pass `--dataset`. It is the original 16-task smoke dataset (5 real
-  fixtures, 11 placeholder workdirs holding only `.gitkeep`); not thesis data.
+  always pass `--dataset`. It's the original 16-task smoke dataset; most of its
+  workdirs hold no fixtures (only `.gitkeep`), so results are meaningless, not
+  thesis data.
 - LM Studio must be running (model loaded, server on port 1234) before any real
   run. One model, one machine for the whole run (thesis validity).
 - Never commit `runs/`, `logs/`, `.venv/`, `metrics/` (gitignored). `homes/`
