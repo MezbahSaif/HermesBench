@@ -364,8 +364,9 @@ check("engine writes results.xlsx", res["xlsx"] is not None
 check(f"engine writes plots ({len(res['plots'])})", len(res["plots"]) >= 8)
 with pd.ExcelFile(res["xlsx"]) as xf:
     sheets = xf.sheet_names
-check(f"xlsx has 4 sheets (got {sheets})",
-      sheets == ["metrics", "summary", "trends", "recovery"])
+check(f"xlsx has 8 sheets (got {sheets})",
+      sheets == ["metrics", "summary", "improvement", "gain", "families",
+                 "regression", "trends", "recovery"])
 trends = pd.read_excel(res["xlsx"], sheet_name="trends")
 check("trends sheet has tau/p columns",
       {"tau", "trend_p", "trend_significant"} <= set(trends.columns))
@@ -382,6 +383,43 @@ summ = build_summary(df)
 check("summary table rows = rounds x arms",
       len(summ) == len(df["round"].unique()) * len(df["arm"].unique()))
 shutil.rmtree(engine_dir)
+
+# --- resume appends to metrics.csv instead of overwriting --------------------
+from benchmark.benchmark_runner import BenchmarkRunner, METRIC_COLUMNS
+from benchmark.config_loader import load_config
+
+res_dir = Path(tempfile.mkdtemp(prefix="selftest_resume_")) / "runs" / "r"
+res_root = res_dir.parents[1]
+res_dir.mkdir(parents=True)
+res_config = load_config(ROOT / "config" / "config.yaml")
+
+
+def _fake_row(rr: int, arm: str, tid: str) -> dict:
+    row = {c: None for c in METRIC_COLUMNS}
+    row.update({"round": rr, "arm": arm, "task_id": tid, "family": tid,
+                "status": "ok", "passed": True, "score": 0.85,
+                "duration_s": 1.0, "exit_code": 0, "timed_out": False,
+                "response_chars": 1, "api_calls": 1, "completed_at": "x"})
+    return row
+
+
+mk = lambda resume=False: BenchmarkRunner(
+    res_config, res_dir, "r", ["treatment", "control"], 5, resume=resume)
+r1 = mk()
+r1.rows.extend([_fake_row(1, "treatment", "t1"),
+                _fake_row(1, "control", "t1")])
+r1._flush_metrics()
+check("resume round 1 flush: 2 rows",
+      len(pd.read_csv(res_dir / "metrics.csv")) == 2)
+r2 = mk(True)
+check("resume seeds previous rows", len(r2.rows) == 2)
+r2.rows.extend([_fake_row(2, "treatment", "t1"),
+                _fake_row(2, "control", "t1")])
+r2._flush_metrics()
+merged = pd.read_csv(res_dir / "metrics.csv")
+check("resume round 2 appends (4 rows, rounds 1+2)",
+      len(merged) == 4 and set(merged["round"]) == {1, 2})
+shutil.rmtree(res_root, ignore_errors=True)
 
 print()
 if failures:

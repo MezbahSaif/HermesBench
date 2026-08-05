@@ -101,12 +101,19 @@ class BenchmarkRunner:
         self.rows: list[dict] = []
         self.done: set[tuple[int, str, str]] = set()
         if resume and self.metrics_path.exists():
-            old = pd.read_csv(self.metrics_path, dtype=str)
+            old = pd.read_csv(self.metrics_path)
+            # Preserve already-completed rows so the next flush appends
+            # instead of overwriting (fixes data loss across --round N
+            # --resume invocations).
+            self.rows = old.to_dict("records")
             for _, r in old.iterrows():
                 self.done.add(
                     (int(float(r["round"])), r["arm"], r["task_id"])
                 )
-            self.logger(f"[resume] found {len(self.done)} completed task rows")
+            self.logger(
+                f"[resume] found {len(self.done)} completed task rows; "
+                f"{len(self.rows)} rows preserved"
+            )
 
         # Load tasks once (applies limit / filters).
         self.tasks = load_dataset_from_config(config)
