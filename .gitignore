@@ -1,27 +1,71 @@
-# Python
+# ── Python ──────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.egg-info/
+*.egg
 .pytest_cache/
 .ipynb_checkpoints/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
 
-# Generated plots (selftest / report artifacts)
-analysis/plots/
-
-# Virtualenv
+# ── Virtualenvs / machine-local toolchain ──────────────
 .venv/
-
-# Machine-local toolchain (kept on the project drive, never shared)
+venv/
+env/
+*.venv/
 .python/
 .pip-cache/
 .uv-cache/
+node_modules/
 
-# Benchmark outputs (machine-specific; generated per machine)
+# ── Benchmark outputs (machine-specific; per-machine) ──
 runs/
 logs/
 metrics/
+*.hosts*
 
-# Streamlit / misc
+# ── Agent outputs (restored from pristine before each run) ──
+datasets/variants/tasks/*/work/
+datasets/tasks/*/work/
+**/pristine/__pycache__/
+**/work/__pycache__/
+*.server.log
+server.log
+test_api.py
+
+# ── Generated plots / reports ──────────────────────────
+analysis/plots/
+
+# ── Secrets — NEVER commit real keys ───────────────────
+.env
+.env.*
+*.env
+.envs/*
+!.env.example
+auth.json
+credentials.json
+*.pem
+*.key
+
+# ── Status/scratch /dev files (never share) ────────────
+_diag*.py
+_*.json
+_*_err.txt
+_*_out.txt
+_*_usage.json
+*.err.txt
+*.out.txt
+status*
+
+# ── Streamlit / IDE / OS ────────────────────────────────
 .streamlit/
+.idea/
+.vscode/
 .DS_Store
 Thumbs.db
+desktop.ini
+*.swp
+*~

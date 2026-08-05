@@ -21,5 +21,5 @@ def word_frequency(text: str, min_len: int = 3) -> dict[str, int]:
 
 def sentence_split(text: str) -> list[str]:
     """Naive splitter (buggy): only '!' and '?' split."""
-    pieces = re.split(r"(?<=[!?])\s+", text.strip())
+    pieces = re.split(r"(?<=[.?!\n])\s+", text.strip())
     return [p for p in pieces if p]
