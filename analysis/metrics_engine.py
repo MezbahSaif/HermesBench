@@ -61,6 +61,122 @@ def build_summary(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def _task_key(df: pd.DataFrame) -> str:
+    return "family" if "family" in df.columns else "task_id"
+
+
+def build_improvement(df: pd.DataFrame) -> pd.DataFrame:
+    """Per-arm, per-round aggregates with deltas vs round 1 (improvement rate)."""
+    if df.empty or "passed" not in df.columns:
+        return pd.DataFrame()
+    rows = []
+    for arm in sorted(df["arm"].unique()):
+        sub = df[df["arm"] == arm]
+        by_round = {}
+        for r in sorted(sub["round"].unique()):
+            cur = sub[sub["round"] == r]
+            by_round[r] = {
+                "mean_score": (cur["score"].mean()
+                               if "score" in cur.columns else float("nan")),
+                "success_rate": cur["passed"].astype(bool).mean(),
+            }
+        first = min(by_round)
+        base_score, base_succ = by_round[first]["mean_score"], by_round[first]["success_rate"]
+        for r in sorted(by_round):
+            rows.append({
+                "arm": arm,
+                "round": r,
+                "mean_score": round(float(by_round[r]["mean_score"]), 4),
+                "success_rate": round(float(by_round[r]["success_rate"]), 4),
+                "score_gain_vs_round1": round(
+                    float(by_round[r]["mean_score"] - base_score), 4),
+                "success_gain_vs_round1": round(
+                    float(by_round[r]["success_rate"] - base_succ), 4),
+            })
+    return pd.DataFrame(rows)
+
+
+def build_gain(df: pd.DataFrame) -> pd.DataFrame:
+    """Treatment minus control per round (success rate, mean score) + Welch p."""
+    if df.empty or "passed" not in df.columns:
+        return pd.DataFrame()
+    arms = [a for a in ("treatment", "control") if a in set(df["arm"])]
+    if len(arms) < 2:
+        return pd.DataFrame()
+    tr, co = arms
+    rows = []
+    for r in sorted(df["round"].unique()):
+        sub_tr = df[(df["arm"] == tr) & (df["round"] == r)]
+        sub_co = df[(df["arm"] == co) & (df["round"] == r)]
+        succ_tr = sub_tr["passed"].astype(bool).mean()
+        succ_co = sub_co["passed"].astype(bool).mean()
+        score_tr = sub_tr["score"].mean() if "score" in df.columns else float("nan")
+        score_co = sub_co["score"].mean() if "score" in df.columns else float("nan")
+        p = stats.welch_ttest(
+            sub_tr["passed"].astype(float).tolist(),
+            sub_co["passed"].astype(float).tolist())["p"]
+        rows.append({
+            "round": r,
+            "treatment_success_rate": round(float(succ_tr), 4),
+            "control_success_rate": round(float(succ_co), 4),
+            "success_gain_tr_minus_co": round(float(succ_tr - succ_co), 4),
+            "treatment_mean_score": round(float(score_tr), 4),
+            "control_mean_score": round(float(score_co), 4),
+            "score_gain_tr_minus_co": round(float(score_tr - score_co), 4),
+            "welch_p_success": round(float(p), 4),
+        })
+    return pd.DataFrame(rows)
+
+
+def build_family_accuracy(df: pd.DataFrame) -> pd.DataFrame:
+    """Accuracy per arm x round x task family (where improvement happens)."""
+    if df.empty or "passed" not in df.columns:
+        return pd.DataFrame()
+    key = _task_key(df)
+    g = df.groupby(["arm", "round", key])["passed"] \
+        .agg(["count", "mean"]).reset_index()
+    return g.rename(columns={"count": "n_tasks", "mean": "accuracy"})
+
+
+def build_regression(df: pd.DataFrame) -> pd.DataFrame:
+    """Per-arm, per-round regression rate: tasks that PASSED the previous
+    round but FAILED the current one (stability check; the mirror of
+    recovery). Also reports the recovered rate for contrast."""
+    if df.empty or "passed" not in df.columns:
+        return pd.DataFrame()
+    key = _task_key(df)
+    rows = []
+    for arm in sorted(df["arm"].unique()):
+        sub = df[df["arm"] == arm].copy()
+        sub["passed"] = sub["passed"].astype(bool)
+        prev_state = None  # (passed_set, present_set) of the previous round
+        for r in sorted(sub["round"].unique()):
+            cur = sub[sub["round"] == r]
+            present = set(cur[key])
+            passed_now = set(cur[cur["passed"]][key])
+            regressed = recovered = float("nan")
+            n_regressed = n_recovered = 0
+            if prev_state is not None:
+                p_passed, p_present = prev_state
+                both = present & p_present
+                if both:
+                    regressed = (p_passed & (present - passed_now))
+                    recovered = ((p_present - p_passed) & passed_now)
+                    n_regressed, n_recovered = len(regressed), len(recovered)
+                    regressed = n_regressed / len(both)
+                    recovered = n_recovered / len(both)
+            rows.append({
+                "arm": arm, "round": r,
+                "n_regressed": n_regressed, "n_recovered": n_recovered,
+                "regression_rate": (round(float(regressed), 4)
+                                    if regressed == regressed else None),
+                "recovered_rate": (round(float(recovered), 4)
+                                   if recovered == recovered else None),
+            })
+            prev_state = (passed_now, present)
+    return pd.DataFrame(rows)
+
+
 def build_recovery(df: pd.DataFrame) -> pd.DataFrame:
     """Wide recovery-rate table: one column per arm, one row per round."""
     arms = [a for a in sorted(df["arm"].unique()) if a not in (None, "")]
@@ -161,8 +277,15 @@ def generate_outputs(df: pd.DataFrame, run_dir: Path,
     try:
         with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name="metrics", index=False)
-            build_summary(df).to_excel(writer, sheet_name="summary",
-                                       index=False)
+            for name, frame in (
+                ("summary", build_summary(df)),
+                ("improvement", build_improvement(df)),
+                ("gain", build_gain(df)),
+                ("families", build_family_accuracy(df)),
+                ("regression", build_regression(df)),
+            ):
+                if frame is not None and not frame.empty:
+                    frame.to_excel(writer, sheet_name=name, index=False)
             v = verdict(df)
             v["statistics"].to_excel(writer, sheet_name="trends", index=False)
             build_recovery(df).to_excel(writer, sheet_name="recovery",
@@ -177,6 +300,24 @@ def generate_outputs(df: pd.DataFrame, run_dir: Path,
     v = verdict(df)
     if not quiet:
         print_verdict(v, df)
+        imp = build_improvement(df)
+        if not imp.empty:
+            last = imp["round"].max()
+            for arm in v["arms"]:
+                row = imp[(imp["arm"] == arm) & (imp["round"] == last)]
+                if row.empty:
+                    continue
+                r = row.iloc[0]
+                print(f"[delta] {arm}: round {last} vs round 1 "
+                      f"score {r['score_gain_vs_round1']:+.3f}, "
+                      f"success {r['success_gain_vs_round1']:+.1%}")
+        g = build_gain(df)
+        if not g.empty:
+            fin = g[g["round"] == g["round"].max()].iloc[0]
+            print(f"[gain] final round treatment-control: "
+                  f"success {fin['success_gain_tr_minus_co']:+.1%} "
+                  f"(p={fin['welch_p_success']:.3f}), "
+                  f"score {fin['score_gain_tr_minus_co']:+.3f}")
 
     return {
         "metrics_csv": str(csv_path),
