@@ -39,7 +39,7 @@ lmstudio:
 
 benchmark:
   # Number of full passes over the task battery (each pass = one round).
-  rounds: 3
+  rounds: 5
   # Which arms to run: treatment (learning loop ON across rounds),
   # control (state reset every round), or both.
   arms: ["treatment", "control"]
