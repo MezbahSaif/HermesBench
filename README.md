@@ -58,9 +58,13 @@ taskkill /F /IM hermes.exe
 ## Known gotchas
 
 - `*_log_events` metrics (tool calls, errors, retries, reflections) are
-  **always 0**: Hermes calls `logging.disable(logging.CRITICAL)` during `-z`
-  one-shot runs, so its agent.log has no activity lines. Treat as unavailable;
-  `api_calls` (from the usage JSON) is the reliable signal.
+  **always 0 on a stock Hermes install**: `hermes -z` used to call
+  `logging.disable(logging.CRITICAL)`, killing agent.log activity. The local
+  Hermes install is patched (hermes_cli/oneshot.py) to keep file logging
+  enabled, and `config/config.yaml` `log_metrics` patterns match Hermes' real
+  log lines (`tool <name> completed/failed`), so these are populated on this
+  machine. If Hermes is ever reinstalled/updated, the patch must be re-applied;
+  `api_calls` (from the usage JSON) remains the most reliable signal.
 - Grading is fully deterministic (Python checkers, no LLM judge in the SE
   dataset). Score ≥ 0.7 → passed.
 - Task workdirs are restored from `pristine/` snapshots before every

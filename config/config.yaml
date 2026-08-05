@@ -44,7 +44,7 @@ benchmark:
   # control (state reset every round), or both.
   arms: ["treatment", "control"]
   # Limit number of tasks per round (None = all).
-  task_limit: null
+  task_limit: 8
   # Score threshold above which a task counts as passed.
   pass_threshold: 0.7
   # Total wall-clock timeout per task.
@@ -52,16 +52,20 @@ benchmark:
 
 log_metrics:
   # Patterns counted in the agent log within each task's [start, end] window.
-  # These are heuristic signals; see README for caveats.
+  # These are heuristic signals; matched case-insensitively as substrings.
+  # Hermes logs tool activity as "tool <name> completed (...s, ... chars)",
+  # "tool <name> failed (...)", "Tool <name> returned error (...)".
   tool_call_patterns:
-    - "tool call"
-    - "executing tool"
-    - "tool execution"
-    - "tool result"
+    - "tool "
+    - " completed ("
+    - " returned error ("
+    - " cancelled ("
   error_patterns:
     - "ERROR"
     - "Traceback"
     - "Exception"
+    - " failed ("
+    - " raised for "
     - "Command failed"
     - "exit code"
   retry_patterns:
