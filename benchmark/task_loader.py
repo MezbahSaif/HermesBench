@@ -60,6 +60,7 @@ class Task:
     workdir: Path
     family: str = ""
     banned: list[str] = field(default_factory=list)
+    tier: str = ""
 
 
 def _validate_check_type(task_id: str, check_type: str) -> str:
@@ -122,6 +123,7 @@ def load_tasks(csv_path: Path, limit: int | None = None,
                     workdir=workdir,
                     family=(row.get("family") or "").strip() or task_id,
                     banned=banned,
+                    tier=(row.get("tier") or "").strip(),
                 )
             )
     if not tasks:

@@ -354,7 +354,8 @@ shutil.rmtree(iso)
 
 # --- metrics engine (csv + xlsx + plots + verdict) --------------------------
 from analysis.metrics_engine import (generate_outputs, build_summary,
-                                     build_recovery, verdict)
+                                     build_recovery, verdict,
+                                     verdict_by_tier)
 
 engine_dir = Path(tempfile.mkdtemp(prefix="selftest_engine_"))
 res = generate_outputs(df, engine_dir, quiet=True)
@@ -364,9 +365,9 @@ check("engine writes results.xlsx", res["xlsx"] is not None
 check(f"engine writes plots ({len(res['plots'])})", len(res["plots"]) >= 8)
 with pd.ExcelFile(res["xlsx"]) as xf:
     sheets = xf.sheet_names
-check(f"xlsx has 8 sheets (got {sheets})",
+check(f"xlsx has 9 sheets (got {sheets})",
       sheets == ["metrics", "summary", "improvement", "gain", "families",
-                 "regression", "trends", "recovery"])
+                 "regression", "trends", "tier_verdict", "recovery"])
 trends = pd.read_excel(res["xlsx"], sheet_name="trends")
 check("trends sheet has tau/p columns",
       {"tau", "trend_p", "trend_significant"} <= set(trends.columns))
@@ -379,6 +380,15 @@ check("verdict: treatment improving", v["per_metric"]["success_rate"].get("treat
 check("verdict: control not improving", v["per_metric"]["success_rate"].get("control") is False)
 check("verdict: claim supported on success_rate",
       "success_rate" in v["supported_metrics"])
+vt = verdict_by_tier(df)
+check("tier verdict includes whole-dataset slice",
+      "all" in vt and set(vt) >= {"all"})
+tier_table = pd.read_excel(res["xlsx"], sheet_name="tier_verdict")
+check("tier_verdict sheet has tier+metric columns",
+      {"tier", "metric", "supported"} <= set(tier_table.columns))
+if "tier" in df.columns:
+    check("tier verdict covers Repeat/Variant/New",
+          {"Repeat", "Variant", "New"} <= set(tier_table["tier"]))
 summ = build_summary(df)
 check("summary table rows = rounds x arms",
       len(summ) == len(df["round"].unique()) * len(df["arm"].unique()))
@@ -414,6 +424,65 @@ acc2 = r._flush_metrics()
 check("resume appends without erasing", len(acc2) == 2
       and set(acc2["round"]) == {1, 2})
 shutil.rmtree(resume_dir)
+
+# --- access-denied auto-recovery (Windows reserved names + orphan sweep) ---
+from benchmark.benchmark_runner import (restore_workspace, _agent_orphans,
+                                        kill_agent_orphans)
+import os
+import subprocess
+import time
+
+asec = Path(tempfile.mkdtemp(prefix="selftest_asec_"))
+apr = asec / "t" / "pristine"
+awk = asec / "t" / "work"
+apr.mkdir(parents=True)
+(apr / "main.py").write_text("x = 1", encoding="utf-8")
+awk.mkdir(parents=True)
+(awk / "main.py").write_text("x = 2", encoding="utf-8")
+if os.name == "nt":
+    # a file literally named "nul" must be deletable (the original bug)
+    with open("\\\\?\\" + str(awk / "nul"), "w") as f:
+        f.write("junk")
+    asec_task = BenchTask(task_id="t", category="se_medium", prompt="p",
+                          check_type="file_contains", expected="x = 1",
+                          threshold=0.7, rubric="r", family="f", workdir=awk)
+    ok = restore_workspace(asec_task, attempts=2, delay_s=0.3)
+    check("restore strips reserved-name 'nul' file", ok
+          and (awk / "main.py").read_text(encoding="utf-8") == "x = 1")
+else:
+    check("restore works on non-Windows too", restore_workspace(
+        BenchTask(task_id="u", category="se_medium", prompt="p",
+                  check_type="file_contains", expected="x = 1",
+                  threshold=0.7, rubric="r", family="ase", workdir=awk),
+        attempts=2, delay_s=0.3))
+shutil.rmtree(asec)
+
+# orphan detection must flag a fake uvicorn (locked) and spare unrelated procs
+if os.name == "nt":
+    fake = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)",
+         "uvicorn", "app:app"],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    plain = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(1.0)
+    try:
+        orphans = _agent_orphans()
+        check("orphan sweep finds marked uvicorn server", fake.pid in orphans)
+        check("orphan sweep ignores unrelated python", plain.pid not in orphans)
+        check("orphan sweep ignores self", os.getpid() not in orphans)
+        killed = kill_agent_orphans()
+        check("orphan kill terminates server", fake.poll() is not None)
+    finally:
+        if fake.poll() is None:
+            fake.kill()
+        if plain.poll() is None:
+            plain.kill()
+        fake.wait()
+        plain.wait()
 
 print()
 if failures:

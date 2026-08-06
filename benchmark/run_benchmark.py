@@ -103,7 +103,6 @@ def main() -> int:
                 "[config] Your teammate must have Hermes Agent installed; "
                 "or set `hermes.executable` / `hermes.real_home` in "
                 "config/config.yaml for their machine.",
-                file=sys.stderr,
             )
             return 2
 
@@ -115,7 +114,11 @@ def main() -> int:
     log_fh = open(log_path, "a", encoding="utf-8")
     tee = Tee(sys.stdout, log_fh)
 
-    from benchmark.benchmark_runner import BenchmarkRunner, snapshot_pristine
+    from benchmark.benchmark_runner import (
+        BenchmarkRunner,
+        kill_agent_orphans,
+        snapshot_pristine,
+    )
 
     if args.refresh_pristine:
         from benchmark.task_loader import load_tasks
@@ -124,6 +127,13 @@ def main() -> int:
         made = sum(1 for t in tasks if snapshot_pristine(t))
         print(f"pristine snapshots created for {made}/{len(tasks)} tasks")
         return 0
+
+    # Auto-cleanup: any leftover agent process from a crashed/aborted run can
+    # hold file locks on task workdirs and make restores fail with
+    # "Access denied". Kill them before the run starts so every round begins
+    # from a clean slate.
+    if not args.dry_run:
+        kill_agent_orphans()
 
     runner = BenchmarkRunner(
         config=config,

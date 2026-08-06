@@ -229,6 +229,46 @@ def verdict(df: pd.DataFrame) -> dict:
     }
 
 
+def _tier_names(df: pd.DataFrame) -> list[str]:
+    """Tier slices present in the data, 'all' first (whole-dataset verdict)."""
+    if "tier" not in df.columns:
+        return ["all"]
+    tiers = [t for t in ("Repeat", "Variant", "New")
+             if t in set(df["tier"].dropna())]
+    return ["all"] + tiers
+
+
+def verdict_by_tier(df: pd.DataFrame) -> dict:
+    """Whole-dataset verdict plus one verdict per tier slice.
+
+    Tier semantics (case-2 design):
+      Repeat -> memorization (same task every round)
+      Variant -> transfer (unseen inputs of a practiced family)
+      New -> specificity control (families never practiced; should stay flat)
+    """
+    return {
+        tier: verdict(df if tier == "all" else df[df["tier"] == tier])
+        for tier in _tier_names(df)
+    }
+
+
+def tier_verdict_table(vt: dict) -> pd.DataFrame:
+    """Compact tier x metric table for the Excel 'tier_verdict' sheet."""
+    rows = []
+    for tier, v in vt.items():
+        for metric in IMPROVING_DIRECTIONS:
+            tr = v["per_metric"].get(metric, {}).get("treatment")
+            co = v["per_metric"].get(metric, {}).get("control")
+            rows.append({
+                "tier": tier,
+                "metric": metric,
+                "treatment_improving": bool(tr),
+                "control_improving": bool(co),
+                "supported": metric in v["supported_metrics"],
+            })
+    return pd.DataFrame(rows)
+
+
 def print_verdict(v: dict, df: pd.DataFrame) -> None:
     print("=" * 72)
     print("METRICS ENGINE - VERDICT")
@@ -262,6 +302,37 @@ def print_verdict(v: dict, df: pd.DataFrame) -> None:
     print("=" * 72)
 
 
+def print_tier_verdicts(vt: dict, df: pd.DataFrame) -> None:
+    """Console section: whole verdict + one verdict per tier slice."""
+    if len(vt) == 1:
+        return  # no tier column (e.g. other_run) - whole verdict only
+    print("=" * 72)
+    print("VERDICT BY TIER")
+    print("  Repeat  = memorization (same task every round)")
+    print("  Variant = transfer (unseen inputs, practiced family)")
+    print("  New     = specificity control (never-practiced families)")
+    print("=" * 72)
+    for tier, v in vt.items():
+        sub = df if tier == "all" else df[df["tier"] == tier]
+        print(f"\n--- tier={tier} ({len(sub)} executions) ---")
+        for metric in IMPROVING_DIRECTIONS:
+            line = v["statistics"][v["statistics"]["metric"] == metric]
+            if line.empty:
+                continue
+            cells = []
+            for arm in v["arms"]:
+                sub_line = line[line["arm"] == arm]
+                if sub_line.empty:
+                    continue
+                r = sub_line.iloc[0]
+                tag = "IMPROVING" if v["per_metric"][metric].get(arm) else "none"
+                cells.append(f"{arm}: tau={r['tau']:.3f} p={r['trend_p']:.3f} {tag}")
+            print(f"  {metric:<24} " + " | ".join(cells))
+        print("  " + (f"SUPPORTED: {', '.join(v['supported_metrics'])}"
+                      if v["supported_metrics"]
+                      else "not supported (or insufficient rounds)"))
+
+
 def generate_outputs(df: pd.DataFrame, run_dir: Path,
                      quiet: bool = False) -> dict:
     """Full metrics stage: csv + xlsx + plots + verdict.
@@ -289,6 +360,9 @@ def generate_outputs(df: pd.DataFrame, run_dir: Path,
                     frame.to_excel(writer, sheet_name=name, index=False)
             v = verdict(df)
             v["statistics"].to_excel(writer, sheet_name="trends", index=False)
+            vt = verdict_by_tier(df)
+            tier_verdict_table(vt).to_excel(
+                writer, sheet_name="tier_verdict", index=False)
             build_recovery(df).to_excel(writer, sheet_name="recovery",
                                         index=False)
     except Exception as exc:
@@ -299,8 +373,10 @@ def generate_outputs(df: pd.DataFrame, run_dir: Path,
     plots = plot_all(df, run_dir / "plots")
 
     v = verdict(df)
+    vt = verdict_by_tier(df)
     if not quiet:
         print_verdict(v, df)
+        print_tier_verdicts(vt, df)
         imp = build_improvement(df)
         if not imp.empty:
             last = imp["round"].max()
@@ -325,6 +401,7 @@ def generate_outputs(df: pd.DataFrame, run_dir: Path,
         "xlsx": str(xlsx_path) if xlsx_path else None,
         "plots": [str(p) for p in plots],
         "verdict": v,
+        "verdict_by_tier": vt,
     }
 
 
