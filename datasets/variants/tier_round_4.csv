@@ -39,11 +39,53 @@ check(""all problems"", sorted(mod.validate({}))
       == sorted([""missing name"", ""port must be int""]))
 check(""no globals leak"", mod.validate({""name"": ""a"", ""port"": 1}) == [])
 ",0.70,"refactor (medium): correct, working solution that satisfies every automated check.",global ;_errs,Repeat
-bug_fix_text_wrong_compare,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+write_tests_temperature,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: good.py, buggy.py.
+
+TASK: The project contains two versions of the same module: `good.py` (correct) and `buggy.py` (one deliberately seeded defect). Your job is to write a unit test suite that would catch the defect (average truncates instead of rounding). Requirements:
+1. Every test must pass against the correct module.
+2. At least one test must FAIL against the buggy module.
+3. Use `import mod` to reach the module under test and write plain functions named `test_*` containing `assert` statements (no test framework needed). Cover edge cases, not just happy paths.
+Difficulty: hard (test design; the bug is subtle).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Your test code must be the ONLY code block in your reply.",test_suite,"GOOD_MODULE=good.py
+BUGGY_MODULE=buggy.py",0.70,"write_tests (hard): correct, working solution that satisfies every automated check.",,Repeat
+bug_fix_finance_wrong_compare,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: main.py.
 
-TASK: The module `main.py` contains a software defect (text-processing helpers). Find the bug and fix it IN PLACE in main.py (slugify, word frequency, sentence splitting). Do not change the module's public API, do not add new dependencies, do not weaken behavior.
+TASK: The module `main.py` contains a software defect (invoice total computation). Find the bug and fix it IN PLACE in main.py (invoice parsing, subtotal, bulk discount, tax). Do not change the module's public API, do not add new dependencies, do not weaken behavior.
+Files in the workdir are yours to edit.
+Difficulty: medium (a ~50-line module with a seeded logic bug).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the fixed module passes all of the project's unit tests (run them if you can).",file_code_exec,"main.py
+check(""parses 3 rows"",
+      len(mod.parse_lines([""a,x,2,1.5"", ""b,y,3,2.0"", ""c,z,1,0.5""])) == 3)
+check(""skips malformed"",
+      len(mod.parse_lines([""a,x,2,1.5"", ""oops"", ""b,y,3,2.0""])) == 2)
+items = mod.parse_lines([""a,x,2,1.5"", ""b,y,3,2.0""])
+check(""subtotal"", mod.compute_subtotal(items) == 9.0)
+check(""subtotal counts last item"",
+      mod.compute_subtotal(mod.parse_lines([""a,x,1,1.0"", ""b,y,1,1.0"", ""c,z,1,1.0""])) == 3.0)
+check(""bulk at boundary"", mod.apply_bulk_discount(500.0) == 450.0)
+check(""bulk above"", mod.apply_bulk_discount(600.0) == 540.0)
+check(""no bulk below"", mod.apply_bulk_discount(499.99) == 499.99)
+check(""tax default"", mod.compute_tax(100.0) == 7.5)
+check(""tax explicit"", mod.compute_tax(100.0, 0.10) == 10.0)
+check(""qty matters"", mod.compute_subtotal(mod.parse_lines([""a,x,4,1.0""])) == 4.0)
+",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",,Variant
+bug_fix_scheduling_wrong_compare,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: main.py.
+
+TASK: The module `main.py` contains a software defect (shift-scheduling logic). Find the bug and fix it IN PLACE in main.py (overlap detection, merging, hours). Do not change the module's public API, do not add new dependencies, do not weaken behavior.
 Files in the workdir are yours to edit.
 Difficulty: medium (a ~40-line module with a seeded logic bug).
 Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
@@ -51,18 +93,19 @@ Edit the files in the workdir using your file tools. When you provide code in yo
 ...
 ```).
 Expected: the fixed module passes all of the project's unit tests (run them if you can).",file_code_exec,"main.py
-check(""slug lower"", mod.slugify(""Hello World"") == ""hello-world"")
-check(""slug punct"", mod.slugify(""Hi, there!!  Plan B"") == ""hi-there-plan-b"")
-freq = mod.word_frequency(""the cat and the dog, the mouse"")
-check(""freq counts"", freq[""the""] == 3)
-check(""freq min_len includes 3"", freq[""and""] == 1)
-check(""freq counts last word"",
-      mod.word_frequency(""alpha beta gamma"")[""gamma""] == 1)
-f2 = mod.word_frequency(""a to the bee"")
-check(""freq excludes short"", ""to"" not in f2)
-check(""splits on period"", len(mod.sentence_split(""Hello. World."")) == 2)
-check(""splits mixed"", len(mod.sentence_split(""One. Two! Three?"")) == 3)
-check(""no trailing empty"", mod.sentence_split(""Bye!"") == [""Bye!""])
+a = mod.Shift(""a"", 0, 2)
+b = mod.Shift(""b"", 2, 4)
+check(""no touch overlap"", not mod.is_overlap(a, b))
+check(""real overlap"", mod.is_overlap(a, mod.Shift(""x"", 1, 3)))
+m = mod.merge_shifts([mod.Shift(""a"", 4, 6), mod.Shift(""a"", 0, 2), mod.Shift(""a"", 1, 3)])
+check(""merge pairs"", len(m) == 2)
+check(""merge keeps last"", m[-1].end == 6)
+m2 = mod.merge_shifts([mod.Shift(""a"", 0, 2), mod.Shift(""a"", 2, 4)])
+check(""merge touching"", len(m2) == 1)
+check(""total hours"",
+      mod.total_hours([mod.Shift(""a"", 0, 2), mod.Shift(""b"", 3, 8)]) == 7)
+check(""empty total"", mod.total_hours([]) == 0)
+check(""merge does not mutate"", (lambda s: (mod.merge_shifts(s), len(s)))([mod.Shift(""a"", 1, 3), mod.Shift(""a"", 0, 2)])[1] == 2)
 ",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",,Variant
 implement_edit_distance,implement_function,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
@@ -83,11 +126,32 @@ check(""one char"", mod.edit_distance(""a"", ""b"") == 1)
 check(""insertion"", mod.edit_distance(""abc"", ""abxc"") == 1)
 check(""long"", mod.edit_distance(""abcdef"", ""azced"") == 3)
 ",0.70,"implement_function (hard): correct, working solution that satisfies every automated check.",,Variant
-write_tests_banking,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+implement_merge_intervals,implement_function,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: solution.py.
+
+TASK: Implement the function described in `solution.py` (merge overlapping intervals). Replace the `raise NotImplementedError` body with a correct, efficient implementation in `solution.py`. Handle edge cases (empty inputs, boundaries). Do not change the signature. The project's hidden unit tests will be run against your file.
+Difficulty: hard (non-trivial algorithm, edge cases).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every hidden unit test passes.",file_code_exec,"solution.py
+check(""example"", mod.merge_intervals([[1, 3], [2, 6], [8, 10], [15, 18]])
+      == [[1, 6], [8, 10], [15, 18]])
+check(""touching merge"", mod.merge_intervals([[1, 2], [2, 3]]) == [[1, 3]])
+check(""empty"", mod.merge_intervals([]) == [])
+check(""single"", mod.merge_intervals([[5, 7]]) == [[5, 7]])
+check(""unsorted input"", mod.merge_intervals([[10, 12], [1, 2], [2, 4]])
+      == [[1, 4], [10, 12]])
+check(""no overlap"", mod.merge_intervals([[1, 2], [3, 4]]) == [[1, 2], [3, 4]])
+check(""contained"", mod.merge_intervals([[1, 10], [2, 3]]) == [[1, 10]])
+",0.70,"implement_function (hard): correct, working solution that satisfies every automated check.",,Variant
+write_tests_urlparser,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: good.py, buggy.py.
 
-TASK: The project contains two versions of the same module: `good.py` (correct) and `buggy.py` (one deliberately seeded defect). Your job is to write a unit test suite that would catch the defect (transfer does not debit the sender). Requirements:
+TASK: The project contains two versions of the same module: `good.py` (correct) and `buggy.py` (one deliberately seeded defect). Your job is to write a unit test suite that would catch the defect (query values are returned as single strings instead of lists). Requirements:
 1. Every test must pass against the correct module.
 2. At least one test must FAIL against the buggy module.
 3. Use `import mod` to reach the module under test and write plain functions named `test_*` containing `assert` statements (no test framework needed). Cover edge cases, not just happy paths.
@@ -98,17 +162,29 @@ Edit the files in the workdir using your file tools. When you provide code in yo
 ```).
 Your test code must be the ONLY code block in your reply.",test_suite,"GOOD_MODULE=good.py
 BUGGY_MODULE=buggy.py",0.70,"write_tests (hard): correct, working solution that satisfies every automated check.",,Variant
-cli_word_freq,cli_tool,se_complex,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+cli_sales,cli_tool,se_complex,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
-Workdir files you may need: README.md, text.txt.
+Workdir files you may need: README.md, orders.csv.
 
-TASK: Build a small command-line tool from the spec in `README.md` (word frequency CLI). Create `cli.py` in the workdir using argparse (flags exactly as documented in the spec). The tool must read the data file from the current directory and print output to stdout in the exact format shown in the spec.
+TASK: Build a small command-line tool from the spec in `README.md` (sales summary CLI). Create `cli.py` in the workdir using argparse (flags exactly as documented in the spec). The tool must read the data file from the current directory and print output to stdout in the exact format shown in the spec.
 Difficulty: complex (CLI contract must match exactly).
 Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
 # main.py
 ...
 ```).
-Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input text.txt --top 3
-the:4
-cat:2
-dog:2",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",,New
+Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input orders.csv --top 2
+Widget:10.50
+Gadget:4.00",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",,New
+cli_filter,cli_tool,se_complex,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, people.csv.
+
+TASK: Build a small command-line tool from the spec in `README.md` (CSV filter CLI). Create `cli.py` in the workdir using argparse (flags exactly as documented in the spec). The tool must read the data file from the current directory and print output to stdout in the exact format shown in the spec.
+Difficulty: complex (CLI contract must match exactly).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input people.csv --min-age 30 --job engineer
+Alice
+Dave",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",,New

@@ -41,14 +41,32 @@ hermes:
 # the treatment arm accumulates sessions but never distills knowledge.
 learning_hook:
   enabled: true
-  # Which arm gets the hook. The control arm must stay hook-free: it exists
-  # to show what happens without any persistence path at all.
+  # Which arm gets the hook. The control arm must stay hook-free.
   arm: treatment
-  # Tiers the hook must NOT touch. New is the specificity control: its
-  # families (cli_tool/docker_configure) must stay genuinely unpracticed,
-  # otherwise the hook would deliberately "learn" them across rounds and
-  # New would stop being a no-learning baseline.
+  # Tiers the hook must NOT touch (New is the specificity control).
   exclude_tiers: [New]
+
+# Case 3 (quality-gated A/B trajectory test). See docs/CASE3_PLAN.md.
+# These flags harden the learning loop: the hook fires ONLY on clean,
+# target-diff-verified solutions, failing skills are pruned, and both arms
+# are seeded with a mandatory formatting contract.
+case3:
+  enabled: true
+  # Seed skills/benchmark_coding_contract.md into BOTH arms' homes before
+  # round 1, so the mandatory formatting contract is present everywhere.
+  seed_contract_skill: "skills/benchmark_coding_contract.md"
+  # Target-diff quality gate: only run the post-task reflection hook when
+  # the agent verifiably modified work/ files (git status or mtime).
+  require_workdir_diff: true
+  # Only hook solutions that scored a perfect 1.0 (spec §4.2).
+  hook_min_score: 1.0
+  # Use the adversarial reflection prompt (§4.2) instead of the plain hook.
+  adversarial_hook: true
+  # Delete skills used during failing tasks (§4.3).
+  prune_failing_skills: true
+  # Metrics: PassRate benchmark AND Fisher-exact gate for the final verdict.
+  delta_pass_threshold: 0.05
+  alpha: 0.05
 
 lmstudio:
   base_url: "http://127.0.0.1:1234/v1"

@@ -39,6 +39,21 @@ check(""all problems"", sorted(mod.validate({}))
       == sorted([""missing name"", ""port must be int""]))
 check(""no globals leak"", mod.validate({""name"": ""a"", ""port"": 1}) == [])
 ",0.70,"refactor (medium): correct, working solution that satisfies every automated check.",global ;_errs,Repeat
+write_tests_temperature,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: good.py, buggy.py.
+
+TASK: The project contains two versions of the same module: `good.py` (correct) and `buggy.py` (one deliberately seeded defect). Your job is to write a unit test suite that would catch the defect (average truncates instead of rounding). Requirements:
+1. Every test must pass against the correct module.
+2. At least one test must FAIL against the buggy module.
+3. Use `import mod` to reach the module under test and write plain functions named `test_*` containing `assert` statements (no test framework needed). Cover edge cases, not just happy paths.
+Difficulty: hard (test design; the bug is subtle).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Your test code must be the ONLY code block in your reply.",test_suite,"GOOD_MODULE=good.py
+BUGGY_MODULE=buggy.py",0.70,"write_tests (hard): correct, working solution that satisfies every automated check.",,Repeat
 bug_fix_text_offbyone,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: main.py.
@@ -63,6 +78,32 @@ check(""freq excludes short"", ""to"" not in f2)
 check(""splits on period"", len(mod.sentence_split(""Hello. World."")) == 2)
 check(""splits mixed"", len(mod.sentence_split(""One. Two! Three?"")) == 3)
 check(""no trailing empty"", mod.sentence_split(""Bye!"") == [""Bye!""])
+",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",,Variant
+bug_fix_scheduling_wrong_key,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: main.py.
+
+TASK: The module `main.py` contains a software defect (shift-scheduling logic). Find the bug and fix it IN PLACE in main.py (overlap detection, merging, hours). Do not change the module's public API, do not add new dependencies, do not weaken behavior.
+Files in the workdir are yours to edit.
+Difficulty: medium (a ~40-line module with a seeded logic bug).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the fixed module passes all of the project's unit tests (run them if you can).",file_code_exec,"main.py
+a = mod.Shift(""a"", 0, 2)
+b = mod.Shift(""b"", 2, 4)
+check(""no touch overlap"", not mod.is_overlap(a, b))
+check(""real overlap"", mod.is_overlap(a, mod.Shift(""x"", 1, 3)))
+m = mod.merge_shifts([mod.Shift(""a"", 4, 6), mod.Shift(""a"", 0, 2), mod.Shift(""a"", 1, 3)])
+check(""merge pairs"", len(m) == 2)
+check(""merge keeps last"", m[-1].end == 6)
+m2 = mod.merge_shifts([mod.Shift(""a"", 0, 2), mod.Shift(""a"", 2, 4)])
+check(""merge touching"", len(m2) == 1)
+check(""total hours"",
+      mod.total_hours([mod.Shift(""a"", 0, 2), mod.Shift(""b"", 3, 8)]) == 7)
+check(""empty total"", mod.total_hours([]) == 0)
+check(""merge does not mutate"", (lambda s: (mod.merge_shifts(s), len(s)))([mod.Shift(""a"", 1, 3), mod.Shift(""a"", 0, 2)])[1] == 2)
 ",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",,Variant
 implement_lru_cache,implement_function,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
@@ -90,11 +131,30 @@ _upd.put(1, 1)
 _upd.put(1, 2)
 check(""update preserves"", _upd.get(1) == 2)
 ",0.70,"implement_function (hard): correct, working solution that satisfies every automated check.",,Variant
-write_tests_stats,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+implement_knapsack,implement_function,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: solution.py.
+
+TASK: Implement the function described in `solution.py` (0/1 knapsack dynamic programming). Replace the `raise NotImplementedError` body with a correct, efficient implementation in `solution.py`. Handle edge cases (empty inputs, boundaries). Do not change the signature. The project's hidden unit tests will be run against your file.
+Difficulty: hard (non-trivial algorithm, edge cases).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every hidden unit test passes.",file_code_exec,"solution.py
+check(""example"", mod.knapsack(10, [5, 4, 6, 3], [10, 40, 30, 50]) == 90)
+check(""zero capacity"", mod.knapsack(0, [1, 2], [5, 9]) == 0)
+check(""heavy items"", mod.knapsack(3, [4, 5], [100, 200]) == 0)
+check(""exact fit"", mod.knapsack(6, [2, 3, 4], [3, 4, 5]) == 8)
+check(""no reuse"", mod.knapsack(5, [2, 2, 2], [1, 1, 1]) == 2)
+check(""empty"", mod.knapsack(5, [], []) == 0)
+check(""choose heavy value"", mod.knapsack(8, [8, 1, 1, 1], [20, 2, 2, 2]) == 20)
+",0.70,"implement_function (hard): correct, working solution that satisfies every automated check.",,Variant
+write_tests_cart,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: good.py, buggy.py.
 
-TASK: The project contains two versions of the same module: `good.py` (correct) and `buggy.py` (one deliberately seeded defect). Your job is to write a unit test suite that would catch the defect (median mutates its input list). Requirements:
+TASK: The project contains two versions of the same module: `good.py` (correct) and `buggy.py` (one deliberately seeded defect). Your job is to write a unit test suite that would catch the defect (promo codes apply a fixed amount instead of a percentage). Requirements:
 1. Every test must pass against the correct module.
 2. At least one test must FAIL against the buggy module.
 3. Use `import mod` to reach the module under test and write plain functions named `test_*` containing `assert` statements (no test framework needed). Cover edge cases, not just happy paths.
@@ -105,11 +165,33 @@ Edit the files in the workdir using your file tools. When you provide code in yo
 ```).
 Your test code must be the ONLY code block in your reply.",test_suite,"GOOD_MODULE=good.py
 BUGGY_MODULE=buggy.py",0.70,"write_tests (hard): correct, working solution that satisfies every automated check.",,Variant
-docker_streamlit_dashboard,docker_configure,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+cli_json_pretty,cli_tool,se_complex,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
-Workdir files you may need: app.py, requirements.txt, README.md.
+Workdir files you may need: README.md, config.json.
 
-TASK: Containerize the project in the workdir (a Streamlit dashboard). Create a `Dockerfile` and a `docker-compose.yml` that follow current best practices (slim base image pinned to a major version, workdir set, dependencies installed from `requirements.txt`, non-default exposed port, healthcheck where reasonable). The compose service must build from the local Dockerfile, publish the app port, and mount the app as a volume.
+TASK: Build a small command-line tool from the spec in `README.md` (pretty-printing JSON CLI). Create `cli.py` in the workdir using argparse (flags exactly as documented in the spec). The tool must read the data file from the current directory and print output to stdout in the exact format shown in the spec.
+Difficulty: complex (CLI contract must match exactly).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input config.json --sort
+{
+""a"": true,
+""y"": [
+1,
+2
+],
+""z"": {
+""a"": 1,
+""b"": 2
+}
+}",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",,New
+docker_cron_worker,docker_configure,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: worker.py, requirements.txt, README.md.
+
+TASK: Containerize the project in the workdir (a scheduled worker script). Create a `Dockerfile` and a `docker-compose.yml` that follow current best practices (slim base image pinned to a major version, workdir set, dependencies installed from `requirements.txt`, non-default exposed port, healthcheck where reasonable). The compose service must build from the local Dockerfile, publish the app port, and mount the app as a volume.
 Difficulty: medium (containerization conventions).
 Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
 # main.py
@@ -120,8 +202,6 @@ Dockerfile|WORKDIR /app
 Dockerfile|COPY
 Dockerfile|RUN pip install
 Dockerfile|CMD
-Dockerfile|EXPOSE 8501
 docker-compose.yml|services:
 docker-compose.yml|build:
-docker-compose.yml|ports:
-docker-compose.yml|8501",0.70,"docker_configure (medium): correct, working solution that satisfies every automated check.",,New
+docker-compose.yml|restart:",0.70,"docker_configure (medium): correct, working solution that satisfies every automated check.",,New

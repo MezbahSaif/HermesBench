@@ -365,9 +365,10 @@ check("engine writes results.xlsx", res["xlsx"] is not None
 check(f"engine writes plots ({len(res['plots'])})", len(res["plots"]) >= 8)
 with pd.ExcelFile(res["xlsx"]) as xf:
     sheets = xf.sheet_names
-check(f"xlsx has 9 sheets (got {sheets})",
+check(f"xlsx has 10 sheets (got {sheets})",
       sheets == ["metrics", "summary", "improvement", "gain", "families",
-                 "regression", "trends", "tier_verdict", "recovery"])
+                 "regression", "trends", "tier_verdict", "recovery",
+                 "case3"])
 trends = pd.read_excel(res["xlsx"], sheet_name="trends")
 check("trends sheet has tau/p columns",
       {"tau", "trend_p", "trend_significant"} <= set(trends.columns))
@@ -462,8 +463,12 @@ shutil.rmtree(asec)
 # --resume: the task is re-run and its new row replaces the old one at the
 # canonical (round, arm, dataset) position - no duplicates, no tail appends.
 rt_dir = Path(tempfile.mkdtemp(prefix="selftest_retry_"))
-tier_tasks = ["fastapi_catalog", "refactor_config", "bug_fix_text_wrong_regex",
-              "implement_knapsack", "write_tests_temperature", "cli_filter"]
+rt_cfg = load_config(ROOT / "config" / "config.yaml")
+rt_cfg.setdefault("project", {})["dataset"] = str(
+    ROOT / "datasets" / "variants" / "tier_round_1.csv")
+from benchmark.task_loader import load_tasks
+tier_tasks = [t.task_id for t in load_tasks(
+    Path(rt_cfg["project"]["dataset"]))][:6]
 rt_rows = []
 for i, tid in enumerate(tier_tasks):
     rt_rows.append(dict(run_id="rt", round=1, arm="treatment", task_id=tid,

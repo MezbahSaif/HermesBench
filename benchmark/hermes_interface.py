@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 try:
@@ -28,6 +28,8 @@ try:
     _HAVE_CTYPES = True
 except Exception:  # pragma: no cover - non-Windows fallback
     _HAVE_CTYPES = False
+
+_RECENT_WINDOW = timedelta(hours=1)
 
 _LOG_LINE_RE = re.compile(
     r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+\s+\w+\s+[\w.]+:\s*(.*)$"
@@ -60,10 +62,144 @@ _HOOK_PROMPT = (
 )
 
 
+# Case-3 adversarial post-task reflection prompt (FIX_BRIEF/spec §4.2).
+# Used ONLY when the target-diff quality gate passes (workdir modified) AND
+# the task scored a perfect 1.0. The quality filter makes the learning loop
+# persist only clean, generalizable lessons and DISCARD one-off hacks.
+ADVERSARIAL_HOOK_PROMPT = (
+    "You are performing a post-task reflection on the task you just solved.\n"
+    "Your goal is to decide whether to save a skill or memory for FUTURE "
+    "sessions.\n\n"
+    "TASK_ID: {task_id}\n"
+    "OUTCOME: {outcome}\n\n"
+    "TASK PROMPT:\n{prompt}\n\n"
+    "CRITICAL QUALITY FILTER:\n"
+    "1. Did you solve this task by editing the target source files in "
+    "`work/`?\n"
+    "2. Is the solution a clean, generalizable software engineering pattern?\n"
+    "3. If you used a temporary script, hardcoded hack, or one-off workaround, "
+    "DISCARD IT. DO NOT WRITE A SKILL.\n\n"
+    "If the task solution is high-quality and reusable:\n"
+    '  - Use `skill_manage(action="create", name="...", content="...")` to '
+    "save a structured workflow.\n"
+    '  - Use `memory(action="add", target="memory", content="...")` for '
+    "concise, universal rules.\n\n"
+    "If no generalizable lesson exists, reply strictly with: "
+    '"NO_SKILL_PERSISTED: Solution was task-specific or required no '
+    'permanent skill."\n\n'
+    "After deciding, reply with EXACTLY the single word DONE and nothing else."
+)
+
+
 def _outcome_summary(status, score, duration_s):
     if status == "ok":
         return f"ok, score={score}"
     return f"{status} score={score} ({duration_s:.0f}s)"
+
+
+def verify_workdir_modified(workdir: Path,
+                            since: datetime | None = None) -> bool:
+    """Case-3 target-diff quality gate (spec §4.1).
+
+    Returns True when the agent verifiably modified files in ``workdir``.
+    Methods, in order:
+
+      1. ``git status --porcelain`` inside the workdir: non-empty output means
+         new/modified files exist -> True.
+      2. Fallback (git unavailable, workdir not a repo, or empty because the
+         task fixtures live in gitignored paths): compare file modification
+         timestamps against ``since`` (the task start time). Any file whose
+         mtime is at/after ``since`` counts as proof of editing.
+
+    The runner passes ``since`` = the task's start timestamp; when it is not
+    provided we fall back to a 1-hour "recently touched" window so a caller
+    without timing context still gets a meaningful answer.
+    """
+    if workdir is None or not Path(workdir).is_dir():
+        return False
+    workdir = Path(workdir)
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(workdir), "status", "--porcelain"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return True
+    except (OSError, subprocess.SubprocessError):
+        pass
+    cutoff = since or (datetime.now() - _RECENT_WINDOW)
+    for p in workdir.rglob("*"):
+        try:
+            if p.is_file() and p.stat().st_mtime >= cutoff.timestamp() - 1.0:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def prune_failing_skills(home_dir: Path, session_logs) -> list[str]:
+    """Case-3 active skill pruner (spec §4.3).
+
+    After a failing task (score < 100%), delete any skill file that was
+    USED during that session so bad procedures cannot accumulate and leak
+    into later rounds.
+
+    ``session_logs`` is a list of agent-log paths (or raw text strings); each
+    is scanned for skill tool invocations (``skill_view`` /
+    ``skill_manage``) and the skill name is extracted from the surrounding
+    text (Hermes logs the tool name; the input args carrying the skill name
+    may also appear on the same line). Matching ``.md`` files under
+    ``home_dir/skills/`` are deleted.
+
+    The seeded contract skill (``benchmark_coding_contract``) is NEVER pruned
+    - it is mandated into both arms and is not a learned artifact.
+
+    Returns the list of deleted skill file stems.
+    """
+    if not home_dir or not Path(home_dir).is_dir():
+        return []
+    skill_root = Path(home_dir) / "skills"
+    if not skill_root.is_dir():
+        return []
+    texts: list[str] = []
+    for item in session_logs or []:
+        if not item:
+            continue
+        item = str(item)
+        try:
+            if len(item) < 4096 and Path(item).exists():
+                texts.append(Path(item).read_text(
+                    encoding="utf-8", errors="ignore"))
+            else:
+                texts.append(item)
+        except OSError:
+            texts.append(item)
+
+    found: set[str] = set()
+    for text in texts:
+        for m in re.finditer(
+            r"skill_(?:view|manage)[^\n]{0,160}"
+            r"((?:name|target)\s*[=:]\s*[\"']?([\w\-\.]+)[\"']?)",
+            text, re.IGNORECASE,
+        ):
+            name = (m.group(2) or m.group(1) or "").strip()
+            if name and name.lower() != "benchmark_coding_contract":
+                found.add(name.replace(".md", ""))
+    deleted: list[str] = []
+    for name in sorted(found):
+        if name.lower() == "benchmark_coding_contract":
+            continue
+        hits = [p for p in skill_root.rglob("*.md")
+                if p.stem.lower() == name.lower()
+                or p.parent.name.lower() == name.lower()]
+        for p in hits:
+            try:
+                p.unlink()
+                deleted.append(p.name)
+                print(f"[PRUNER] Deleted harmful/ineffective skill: {p.name}")
+            except OSError as exc:
+                print(f"[PRUNER] could not delete {p.name}: {exc!r}")
+    return deleted
 
 
 def _run_kill_on_close(cmd, **kwargs):
@@ -243,6 +379,13 @@ class HermesInterface:
         self.log_metrics_cfg = config.get("log_metrics", {})
         self.seed_skills = bool(config["hermes"].get("seed_skills", True))
         self.learning_hook = bool(config["benchmark"].get("learning_hook", True))
+        case3 = config.get("case3", {})
+        self.contract_skill = (
+            Path(case3["seed_contract_skill"])
+            if case3.get("seed_contract_skill")
+            else None
+        )
+        self.adversarial_hook = bool(case3.get("adversarial_hook", False))
         self.log_file = None
 
     # ------------------------------------------------------------------ setup
@@ -270,7 +413,23 @@ class HermesInterface:
             )
         if self.seed_skills:
             self._seed_skills_from_real_home()
+        self._seed_contract_skill()
         self._locate_log_file()
+
+    def _seed_contract_skill(self) -> None:
+        """Case 3: pre-load the mandatory benchmark coding contract into the
+        arm home (both treatment and control) so the formatting/import rules
+        are system-prompt visible from round 1 regardless of arm reset."""
+        if self.contract_skill is None or not self.contract_skill.exists():
+            return
+        dst = self.home_dir / "skills" / "benchmark" / "coding-contract"
+        dst.mkdir(parents=True, exist_ok=True)
+        target = dst / "SKILL.md"
+        try:
+            shutil.copy2(self.contract_skill, target)
+            print(f"[hermes] seeded contract skill -> {target}")
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"[hermes] WARNING: failed to seed contract skill: {exc}")
 
     def _seed_skills_from_real_home(self) -> None:
         """Copy the real home's skills/ tree into HERMES_HOME/skills.
@@ -315,14 +474,22 @@ class HermesInterface:
         task,
         outcome_summary: str,
         usage_path: Path | None = None,
+        adversarial: bool | None = None,
     ) -> LearningHook:
         """Trigger Hermes's NATIVE memory write path (one-shot mode never
         auto-fires it): run a short `-z` session whose prompt directs the
         agent to distill lessons and persist them with the built-in `memory`
         tool (memories/MEMORY.md / USER.md) and, when warranted, the
         `skill_manage` tool. Returns before/after learning states so the
-        runner can measure how much the hook actually persisted."""
-        prompt = _HOOK_PROMPT.format(
+        runner can measure how much the hook actually persisted.
+
+        Case 3: when `adversarial` (default: config) is enabled, the prompt
+        is the quality-filtered ADVERSARIAL_HOOK_PROMPT (spec §4.2) instead
+        of the plain distilling prompt."""
+        if adversarial is None:
+            adversarial = self.adversarial_hook
+        prompt_tpl = ADVERSARIAL_HOOK_PROMPT if adversarial else _HOOK_PROMPT
+        prompt = prompt_tpl.format(
             task_id=task.task_id,
             outcome=outcome_summary,
             prompt=task.prompt[:4000],

@@ -25,6 +25,18 @@ from benchmark.graders import LLMJudge, grade
 from benchmark.hermes_interface import (
     HermesInterface,
     _outcome_summary,
+    verify_workdir_modified,
+    prune_failing_skills,
+)
+from benchmark.infrastructure_recovery import (
+    _remove_windows_reserved_files,
+    _agent_orphans,
+    _ancestor_pids,
+    _process_table,
+    kill_agent_orphans,
+    restore_workspace,
+    safe_restore_workspace,
+    snapshot_pristine,
 )
 from benchmark.task_loader import Task, load_dataset_from_config
 
@@ -40,6 +52,11 @@ METRIC_COLUMNS = [
     "before_skill_files", "after_skill_files", "before_memory_files",
     "after_memory_files", "before_memory_bytes", "after_memory_bytes",
     "before_state_db_bytes", "after_state_db_bytes",
+    # Case-3 quality-gated learning loop:
+    #   workdir_modified         target-diff gate result (bool)
+    #   pruned_skill_files       skills deleted because they were used during
+    #                            a failing task (pruner, spec §4.3)
+    "workdir_modified", "pruned_skill_files",
     # Post-task learning hook (treatment arm): a directed `hermes -z` session
     # that makes the agent persist lessons via Hermes's own memory/skill tools.
     "hook_status", "hook_duration_s", "hook_memory_files_delta",
@@ -57,196 +74,15 @@ _STRING_COLUMNS = {
     "score_detail", "completed_at",
     "passed", "timed_out", "session_id",
     "hook_status",
+    "workdir_modified",
 }
 
 
-def _remove_windows_reserved_files(root: Path) -> None:
-    """Delete files with Windows reserved device names (nul, con, prn, aux,
-    com1-9, lpt1-9) that the agent may have created by misinterpreting shell
-    redirects (e.g. `> nul`). Normal shutil.rmtree refuses to delete these
-    (PermissionError 13) because Windows treats them as devices; the \\?\
-    extended path prefix bypasses that."""
-    if os.name != "nt":
-        return
-    reserved = {"nul", "con", "prn", "aux", "com1", "com2", "com3", "com4",
-                "com5", "com6", "com7", "com8", "com9",
-                "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7",
-                "lpt8", "lpt9"}
-    # NOTE: match by name only - is_file() is False for device names like
-    # "nul", so an is_file() guard would silently skip the files we need to
-    # delete.
-    for path in list(root.rglob("*")):
-        if path.name.lower().split(".")[0] in reserved:
-            try:
-                os.remove("\\\\?\\" + str(path.resolve()))
-            except OSError:
-                pass
-
-
-def _process_table() -> list[dict]:
-    """PID, parent PID, name and command line of every process (Windows).
-
-    Uses PowerShell's CIM provider so we get CommandLine (which the standard
-    psapi/toolhelp APIs do not expose without deeper tricks). Only called on
-    failure paths, so the ~1 s cost is irrelevant.
-    """
-    script = (
-        "Get-CimInstance Win32_Process | "
-        "ForEach-Object { \"$($_.ProcessId)|$($_.ParentProcessId)|$($_.Name)|$($_.CommandLine)\" }"
-    )
-    try:
-        out = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-            capture_output=True, text=True, timeout=30,
-        ).stdout
-    except (OSError, subprocess.SubprocessError) as exc:
-        print(f"[ws] process table unavailable: {exc}")
-        return []
-    rows = []
-    for line in out.splitlines():
-        parts = line.split("|", 3)
-        if len(parts) == 4 and parts[0].strip().isdigit():
-            rows.append({"pid": int(parts[0]), "ppid": int(parts[1]),
-                         "name": parts[2], "cmdline": parts[3]})
-    return rows
-
-
-def _ancestor_pids(rows: list[dict], pid: int) -> set[int]:
-    by_pid = {r["pid"]: r for r in rows}
-    seen, cur = set(), pid
-    while cur in by_pid and cur not in seen:
-        seen.add(cur)
-        cur = by_pid[cur]["ppid"]
-    return seen
-
-
-def _agent_orphans() -> list[int]:
-    """PIDs of leftover agent processes that can still lock workdirs.
-
-    After an invocation the job object kills the whole agent process tree, so
-    any surviving benchmark-agent process is an orphan from a crashed or
-    aborted run (e.g. a server the agent started whose parent shell was
-    hard-killed). Candidates: python/pythonw/hermes executables whose command
-    line is not LM Studio and not the current runner, its ancestors, or other
-    benchmark-owned scripts.
-    """
-    rows = _process_table()
-    if not rows:
-        return []
-    self_pid = os.getpid()
-    protected = _ancestor_pids(rows, self_pid) | {self_pid}
-    protected |= {r["pid"] for r in rows
-                  if "run_benchmark" in (r["cmdline"] or "")
-                  or "metrics_engine" in (r["cmdline"] or "")
-                  or "selftest" in (r["cmdline"] or "")}
-    # Markers that only an agent-started server or hermes itself would have.
-    # Being conservative here matters: we never want to kill an unrelated
-    # user process that merely happens to be a venv python.
-    server_markers = ("uvicorn", "app:app", "fastapi", "flask", "streamlit",
-                      "manage.py", "runserver")
-    orphans = []
-    for r in rows:
-        cmd = (r["cmdline"] or "").lower()
-        if r["pid"] in protected:
-            continue
-        if "lmstudio" in cmd or ".lmstudio" in cmd:
-            continue
-        name = r["name"].lower()
-        if name == "hermes.exe":
-            orphans.append(r["pid"])
-            continue
-        if name not in ("python.exe", "pythonw.exe", "uvicorn.exe"):
-            continue
-        if not cmd:
-            continue
-        if any(m in cmd for m in server_markers):
-            orphans.append(r["pid"])
-    return orphans
-
-
-def kill_agent_orphans() -> int:
-    """Terminate leftover agent processes; returns how many were killed."""
-    if os.name != "nt":
-        return 0
-    pids = _agent_orphans()
-    if not pids:
-        return 0
-    try:
-        script = ("$ids = '" + ",".join(str(p) for p in pids)
-                  + "'.Split(','); foreach ($id in $ids) { "
-                  "Stop-Process -Id ([int]$id) -Force -ErrorAction SilentlyContinue }")
-        subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-                       capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.SubprocessError) as exc:
-        print(f"[ws] orphan kill failed: {exc}")
-        return 0
-    time.sleep(1.0)
-    print(f"[ws] killed {len(pids)} leftover agent process(es): {pids}")
-    return len(pids)
-
-
-def restore_workspace(task: Task, attempts: int = 4, delay_s: float = 2.0) -> bool:
-    """Restore the task workdir from its pristine snapshot, if one exists.
-
-    The pristine snapshot lives at <dataset>/tasks/<task_id>/pristine and is
-    created by the task generator (or via --refresh-pristine for hand-made
-    datasets). Restoring before every execution guarantees every (round, arm)
-    starts from identical, untouched fixtures: the agent's edits never leak
-    into later rounds or across arms. Returns True when a restore happened.
-
-    Auto-recovery ladder (Windows) so the benchmark never dies on file locks:
-      1. reserved-name files (nul etc.) the agent wrote are stripped first
-         (shutil.rmtree can never delete them otherwise);
-      2. transient locks are retried with backoff (a still-terminating child
-         may briefly hold a handle);
-      3. if retries are exhausted, leftover agent processes (orphaned servers
-         from a crashed/aborted run) are force-killed and one final attempt
-         runs. Only if that also fails does the exception propagate.
-    """
-    pristine = task.workdir.parent / "pristine"
-    if not pristine.is_dir():
-        return False
-    _remove_windows_reserved_files(task.workdir)
-    last_exc: Exception | None = None
-    for attempt in range(attempts):
-        try:
-            if task.workdir.exists():
-                shutil.rmtree(task.workdir)
-            shutil.copytree(pristine, task.workdir)
-            return True
-        except Exception as exc:
-            last_exc = exc
-            _remove_windows_reserved_files(task.workdir)
-            if attempt < attempts - 1:
-                time.sleep(delay_s * (attempt + 1))
-    if os.name == "nt" and last_exc is not None:
-        print(f"[ws] restore still locked ({last_exc.__class__.__name__}); "
-              "killing leftover agent processes and retrying once")
-        kill_agent_orphans()
-        try:
-            if task.workdir.exists():
-                shutil.rmtree(task.workdir)
-            shutil.copytree(pristine, task.workdir)
-            return True
-        except Exception as exc:
-            last_exc = exc
-    if last_exc is not None:
-        raise last_exc
-    return False
-
-
-def snapshot_pristine(task: Task) -> bool:
-    """Copy the current workdir into <task_id>/pristine (one-time setup for
-    hand-authored datasets). Returns True when a snapshot was created."""
-    if not task.workdir.is_dir():
-        return False
-    pristine = task.workdir.parent / "pristine"
-    if pristine.is_dir():
-        return False
-    shutil.copytree(task.workdir, pristine)
-    return True
-
-
+# ---------------------------------------------------------------------------
+# Windows recovery routines (_remove_windows_reserved_files, restore_workspace,
+# kill_agent_orphans, etc.) live in benchmark.infrastructure_recovery and are
+# re-exported above for back-compat with the CLI and selftests.
+# ---------------------------------------------------------------------------
 class BenchmarkRunner:
     def __init__(self, config: dict, run_dir: Path, run_id: str,
                  arms: list[str], rounds: int, task_limit: int | None = None,
@@ -279,6 +115,15 @@ class BenchmarkRunner:
         self.hook_exclude_tiers = set(config.get("learning_hook", {}).get(
             "exclude_tiers", []
         ))
+        # Case-3 quality-gated learning loop (spec §4):
+        #   require_workdir_diff -> hook only when the agent modified work/
+        #   hook_min_score       -> hook only perfect solutions (1.0)
+        #   prune_failing_skills -> delete skills used during failing tasks
+        c3 = config.get("case3", {})
+        self.case3_enabled = bool(c3.get("enabled", True))
+        self.require_workdir_diff = bool(c3.get("require_workdir_diff", True))
+        self.hook_min_score = float(c3.get("hook_min_score", 1.0))
+        self.prune_failing_skills = bool(c3.get("prune_failing_skills", True))
 
         self.artifacts_dir = run_dir / "artifacts"
         self.usage_dir = run_dir / "usage"
@@ -396,7 +241,11 @@ class BenchmarkRunner:
                         "task", round_no, i, f"{arm}:{task.task_id}"
                     )
                     try:
-                        restored = restore_workspace(task)
+                        restored = (
+                            safe_restore_workspace(task)
+                            if self.case3_enabled
+                            else restore_workspace(task)
+                        )
                     except Exception as exc:
                         self.logger(
                             f"  [ws] restore FAILED for {task.task_id}: "
@@ -440,6 +289,8 @@ class BenchmarkRunner:
                             "after_memory_bytes": None,
                             "before_state_db_bytes": None,
                             "after_state_db_bytes": None,
+                            "workdir_modified": None,
+                            "pruned_skill_files": None,
                             "human_interventions": 1,
                             "completed_at": datetime.now().isoformat(
                                 timespec="seconds"
@@ -496,6 +347,8 @@ class BenchmarkRunner:
                             "after_memory_bytes": None,
                             "before_state_db_bytes": None,
                             "after_state_db_bytes": None,
+                            "workdir_modified": None,
+                            "pruned_skill_files": None,
                             "human_interventions": 1,
                             "completed_at": datetime.now().isoformat(
                                 timespec="seconds"
@@ -580,6 +433,15 @@ class BenchmarkRunner:
         # New-tier tasks are excluded: the hook must not deliberately practice
         # the specificity-control families (cli_tool/docker_configure) or New
         # stops being a no-learning baseline.
+        #
+        # Case-3 quality gates (spec §4.1/§4.2):
+        #   - the hook runs ONLY when the target files in work/ were
+        #     verifiably modified (verify_workdir_modified), otherwise
+        #     hook_status = "skipped(no-diff)";
+        #   - the hook runs ONLY for solutions scoring >= hook_min_score
+        #     (1.0 = perfect), otherwise "skipped(score<1.0)";
+        #   - when the gate passes the hook uses the ADVERSARIAL_HOOK_PROMPT
+        #     (quality filter) instead of the plain distilling prompt.
         hook_status = hook_duration = None
         hook_mem_delta = hook_skill_delta = hook_mem_bytes_delta = None
         tier_excluded = (
@@ -590,6 +452,11 @@ class BenchmarkRunner:
             and arm == self.hook_arm
             and not self.dry_run
             and not tier_excluded
+        )
+        workdir_modified = (
+            verify_workdir_modified(task.workdir, since=start_dt)
+            if self.case3_enabled
+            else True
         )
         if hook_eligible and status != "ok":
             # Only persist recalled lessons from tasks Hermes completed.
@@ -605,10 +472,31 @@ class BenchmarkRunner:
             # Deliberate design: New = specificity control, the hook never
             # runs there (same auditability as the not-ok skip).
             hook_status = "skipped(tier=New)"
+        elif hook_eligible and self.case3_enabled \
+                and self.require_workdir_diff and not workdir_modified:
+            # Case-3 target-diff quality gate: the agent did not verifiably
+            # edit any file in work/ (it likely solved via a temp script or
+            # only responded in chat). No lesson to distill -> skip the hook.
+            hook_status = "skipped(no-diff)"
+            self.logger(
+                f"  [hook] skipped {task.task_id} (no target-diff in "
+                "work/) - refusing to persist an unverified solution"
+            )
+        elif hook_eligible and self.case3_enabled and score is not None \
+                and score < self.hook_min_score:
+            # Quality gate: imperfect solutions must not write skills.
+            hook_status = "skipped(score<1.0)"
+            self.logger(
+                f"  [hook] skipped {task.task_id} (score={score} < "
+                f"{self.hook_min_score}) - only perfect solutions persist"
+            )
         elif hook_eligible:
             hook_usage = self.usage_dir / f"r{round_no}_{arm}_{task.task_id}_hook.json"
             outcome = _outcome_summary(status, score, result.duration_s)
-            hook = ifi.run_learning_hook(task, outcome, hook_usage)
+            hook = ifi.run_learning_hook(
+                task, outcome, hook_usage,
+                adversarial=self.case3_enabled,
+            )
             hook_status = "ok" if hook.ok else "error"
             hook_duration = (
                 round(hook.result.duration_s, 3) if hook.result else 0.0
@@ -619,6 +507,25 @@ class BenchmarkRunner:
                 hook.after.memory_bytes - hook.before.memory_bytes
                 if hook.after is not None else None
             )
+
+        # Case-3 active skill pruner (spec §4.3): any skill that was USED
+        # during a failing task (score < 100%) is deleted from the home, so
+        # harmful/ineffective procedures cannot accumulate across rounds.
+        pruned_skills = 0
+        if self.case3_enabled and self.prune_failing_skills \
+                and not self.dry_run and score is not None and score < 1.0:
+            logs = [p for p in (ifi.log_file,) if p and p.exists()]
+            usage_txt = usage_path if usage_path.exists() else None
+            session_logs = list(logs) + (
+                [str(usage_path)] if usage_txt else []
+            )
+            pruned = prune_failing_skills(ifi.home_dir, session_logs)
+            pruned_skills = len(pruned)
+            if pruned_skills:
+                self.logger(
+                    f"  [pruner] removed {pruned_skills} skill file(s) after "
+                    f"failing task {task.task_id}: {pruned}"
+                )
 
         row = {
             "run_id": self.run_id,
@@ -657,6 +564,8 @@ class BenchmarkRunner:
             "after_memory_bytes": after.memory_bytes,
             "before_state_db_bytes": before.state_db_bytes,
             "after_state_db_bytes": after.state_db_bytes,
+            "workdir_modified": bool(workdir_modified),
+            "pruned_skill_files": pruned_skills,
             "hook_status": hook_status,
             "hook_duration_s": hook_duration,
             "hook_memory_files_delta": hook_mem_delta,
@@ -755,6 +664,25 @@ class BenchmarkRunner:
 
     def _finalize(self) -> pd.DataFrame:
         df = self._flush_metrics()
+        # Case-3 verdict (spec §8.2): PassRate gate + Fisher exact gate.
+        # Computed independently of the xlsx/plots stage so a plotting hiccup
+        # can never swallow the faculty verdict.
+        c3 = self.config.get("case3", {})
+        if self.case3_enabled:
+            try:
+                from analysis.metrics_engine import case3_verdict
+                c3v = case3_verdict(df, float(c3.get(
+                    "delta_pass_threshold", 0.05)), float(c3.get(
+                        "alpha", 0.05)))
+                self.logger(
+                    "CASE3 VERDICT: "
+                    f"delta_pass={c3v['delta_pass']:+.1%} "
+                    f"(need >=+{c3v['delta_threshold']:.0%}), "
+                    f"fisher_p={c3v['fisher_p']:.4f} (need <{c3v['alpha']})\n"
+                    + c3v["verdict"]
+                )
+            except Exception as exc:
+                self.logger(f"case3 verdict skipped: {exc}")
         try:
             from analysis.metrics_engine import generate_outputs
             res = generate_outputs(df, self.run_dir, quiet=True)

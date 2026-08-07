@@ -238,6 +238,146 @@ def _tier_names(df: pd.DataFrame) -> list[str]:
     return ["all"] + tiers
 
 
+# ---------------------------------------------------------------- case 3
+# Spec §8.1 metrics. The binary "pass" for Case 3 is a PERFECT score (1.0):
+# the quality-gated hook persists lessons only from flawless solutions, so the
+# claim being tested is "treatment reaches 100% more often than control as
+# rounds accumulate".
+
+def _is_mask(df: pd.DataFrame) -> pd.Series:
+    """True where the task scored a perfect 1.0 (Case-3 'pass')."""
+    return (
+        pd.to_numeric(df["score"], errors="coerce").fillna(0.0) >= 1.0
+        if "score" in df.columns
+        else pd.Series([False] * len(df), index=df.index)
+    )
+
+
+def pass_rate_per_round(df: pd.DataFrame, arm: str) -> pd.DataFrame:
+    """PassRate_r = (# tasks with score == 1.0 in round r) / (tasks in r)."""
+    sub = df[df["arm"] == arm].copy()
+    if sub.empty:
+        return pd.DataFrame()
+    sub["_pass"] = _is_mask(sub).astype(float)
+    out = sub.groupby("round")["_pass"].agg(["count", "mean"]).reset_index()
+    return out.rename(columns={"count": "n_tasks", "mean": "pass_rate"})
+
+
+def delta_pass(df: pd.DataFrame, threshold: float = 0.05) -> float:
+    """ΔPass = PassRate(treatment, R5) - PassRate(control, R5).
+
+    NaN when either arm is missing its final round.
+    """
+    last = df["round"].max() if "round" in df.columns else None
+    if last is None:
+        return float("nan")
+    rates = {}
+    for arm in ("treatment", "control"):
+        pr = pass_rate_per_round(df, arm)
+        if pr.empty or not (pr["round"] == last).any():
+            return float("nan")
+        rates[arm] = float(pr.loc[pr["round"] == last, "pass_rate"].iloc[0])
+    return rates["treatment"] - rates["control"]
+
+
+def variant_transfer_rate(df: pd.DataFrame, arm: str) -> float:
+    """VTR = pass rate on tier == 'Variant' tasks for an arm.
+
+    NaN when the frame has no tier column (pre-case-3 runs) or no Variant rows.
+    """
+    sub = df[df["arm"] == arm]
+    if sub.empty or "tier" not in df.columns:
+        return float("nan")
+    sub = sub[sub["tier"].eq("Variant")]
+    if sub.empty:
+        return float("nan")
+    return float(_is_mask(sub).mean())
+
+
+def fisher_exact_final(df: pd.DataFrame) -> dict:
+    """Fisher's exact test, 2x2, final round: [treatment pass/fail,
+    control pass/fail]. Returns oddsratio + p (two-sided)."""
+    last = df["round"].max() if "round" in df.columns else None
+    if last is None:
+        return {"oddsratio": float("nan"), "p": 1.0}
+    fin = df[df["round"] == last]
+    tr = fin[fin["arm"] == "treatment"]
+    co = fin[fin["arm"] == "control"]
+    if tr.empty or co.empty:
+        return {"oddsratio": float("nan"), "p": 1.0}
+    tr_pass = int(_is_mask(tr).sum())
+    co_pass = int(_is_mask(co).sum())
+    table = [[tr_pass, len(tr) - tr_pass],
+             [co_pass, len(co) - co_pass]]
+    from scipy.stats import fisher_exact
+    oddsratio, p = fisher_exact(table, alternative="two-sided")
+    return {"oddsratio": float(oddsratio), "p": float(p),
+            "treatment_pass": tr_pass, "treatment_total": len(tr),
+            "control_pass": co_pass, "control_total": len(co)}
+
+
+def skill_utility_ratio(df: pd.DataFrame) -> float:
+    """SUR = skills persisted on PASSED tasks / total skills persisted.
+
+    Proxy definition (metrics.csv has no per-retrieval column, so):
+      * numerator   = sum of (after_skill_files - before_skill_files) on
+        passed treatment tasks (skills written by the reflection hook after
+        a flawless solve);
+      proxy definition (metrics.csv has no per-retrieval column, so):
+      * numerator   = sum of (after_skill_files - before_skill_files) on
+        passed treatment tasks (skills written by the reflection hook after
+        a flawless solve);
+      * denominator = peak after_skill_files across the treatment arm
+        (total skills in memory at the end of the run).
+    The ratio is clamped to [0, 100] since the coarse per-task deltas can
+    over-count skills touched by several passed tasks in the same round.
+    """
+    tr = df[df["arm"] == "treatment"]
+    if tr.empty:
+        return float("nan")
+    if "after_skill_files" not in df.columns \
+            or "before_skill_files" not in df.columns:
+        return float("nan")
+    passed = tr[_is_mask(tr)]
+    before = pd.to_numeric(passed["before_skill_files"], errors="coerce")
+    after = pd.to_numeric(passed["after_skill_files"], errors="coerce")
+    num = float((after - before).sum() or 0.0)
+    denom = float(pd.to_numeric(tr["after_skill_files"],
+                                errors="coerce").fillna(0.0).max() or 0.0)
+    if denom <= 0:
+        return float("nan")
+    return min(100.0, max(0.0, num / denom * 100.0))
+
+
+def case3_verdict(df: pd.DataFrame, delta_threshold: float = 0.05,
+                  alpha: float = 0.05) -> dict:
+    """Spec §8.2 verdict. YES only if ΔPass >= +5% AND Fisher p < 0.05.
+
+    Returns the parsed numbers + the exact console string from the spec.
+    """
+    delta = delta_pass(df)
+    fisher = fisher_exact_final(df)
+    yes = (delta == delta and delta >= delta_threshold
+           and fisher["p"] < alpha)
+    if yes:
+        text = ("VERDICT: YES (Hermes Agent natively self-improves "
+                "under quality gates)")
+    else:
+        text = ("VERDICT: NO (Self-improvement hypothesis rejected; "
+                "performance remains flat)")
+    return {
+        "delta_pass": delta,
+        "delta_threshold": delta_threshold,
+        "fisher_p": fisher["p"],
+        "alpha": alpha,
+        "fisher": fisher,
+        "vtr_treatment": variant_transfer_rate(df, "treatment"),
+        "vtr_control": variant_transfer_rate(df, "control"),
+        "sur": skill_utility_ratio(df),
+        "verdict": text,
+    }
+
+
 def verdict_by_tier(df: pd.DataFrame) -> dict:
     """Whole-dataset verdict plus one verdict per tier slice.
 
@@ -333,6 +473,28 @@ def print_tier_verdicts(vt: dict, df: pd.DataFrame) -> None:
                       else "not supported (or insufficient rounds)"))
 
 
+def build_case3_table(df: pd.DataFrame, delta_threshold: float = 0.05,
+                      alpha: float = 0.05) -> pd.DataFrame:
+    """Case-3 (§8) metric table for the Excel 'case3' sheet."""
+    c3 = case3_verdict(df, delta_threshold, alpha)
+    rows = [{"metric": "PassRate treatment (final round)",
+             "value": pass_rate_per_round(df, "treatment")},
+            {"metric": "PassRate control (final round)",
+             "value": pass_rate_per_round(df, "control")},
+            {"metric": "DeltaPass (treatment - control)",
+             "value": c3["delta_pass"]},
+            {"metric": "Fisher exact p (final round)",
+             "value": c3["fisher_p"]},
+            {"metric": "Fisher odds ratio", "value": c3["fisher"]["oddsratio"]},
+            {"metric": "VTR treatment", "value": c3["vtr_treatment"]},
+            {"metric": "VTR control", "value": c3["vtr_control"]},
+            {"metric": "SUR (skill utility ratio)", "value": c3["sur"]},
+            {"metric": "Verdict", "value": c3["verdict"]},
+            ]
+    out = pd.DataFrame(rows)
+    return out
+
+
 def generate_outputs(df: pd.DataFrame, run_dir: Path,
                      quiet: bool = False) -> dict:
     """Full metrics stage: csv + xlsx + plots + verdict.
@@ -365,6 +527,8 @@ def generate_outputs(df: pd.DataFrame, run_dir: Path,
                 writer, sheet_name="tier_verdict", index=False)
             build_recovery(df).to_excel(writer, sheet_name="recovery",
                                         index=False)
+            build_case3_table(df).to_excel(writer, sheet_name="case3",
+                                           index=False)
     except Exception as exc:
         xlsx_path = None
         if not quiet:
@@ -402,6 +566,7 @@ def generate_outputs(df: pd.DataFrame, run_dir: Path,
         "plots": [str(p) for p in plots],
         "verdict": v,
         "verdict_by_tier": vt,
+        "case3_verdict": case3_verdict(df),
     }
 
 
