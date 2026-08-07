@@ -169,7 +169,7 @@ round reuses round 1), and cli+docker hold only 7 held-out instances (rounds
 invariants (10 rows/round, no intra-round dup, task stays in one tier) and
 flags the intentional reuse rows in `REUSE_NOTES` so the numbers are auditable.
 
-## 5. Metrics engine (spec §8)
+## 4. Metrics engine (spec §8)
 
 `analysis/metrics_engine.py` gains the Case-3 functions + a `case3` xlsx sheet:
 
@@ -187,25 +187,26 @@ independent console line via `_finalize`), printed exactly per spec §8.2:
 `"CASE3 VERDICT: YES (Hermes Agent natively self-improves under quality gates)"`
 The existing whole-dataset / tier-verdict / sheet layout is unchanged.
 
-## 6. Execution protocol (operator runs — no live run performed)
+## 5. Execution protocol (operator runs — no live run performed)
 
 LM Studio must be running with `qwen/qwen3.5-9b` loaded. Round 1 establishes
 the baseline; rounds 2–5 use `--resume` (keeps Treatment state).
 
 ```
 # Round 1
-python benchmark/run_benchmark.py --dataset datasets/variants/tier_round_1.csv --round 1 --arm both --run-id case3_run --limit 10
+.venv\Scripts\python.exe benchmark\run_benchmark.py --dataset datasets\variants\tier_round_1.csv --round 1 --arm both --run-id case3_run --limit 10
 # Rounds 2–5
-python benchmark/run_benchmark.py --dataset datasets/variants/tier_round_2.csv --round 2 --arm both --run-id case3_run --limit 10 --resume
+.venv\Scripts\python.exe benchmark\run_benchmark.py --dataset datasets\variants\tier_round_2.csv --round 2 --arm both --run-id case3_run --limit 10 --resume
 … (rounds 3, 4, 5 identically)
 ```
 
 Round = 10 tasks × 2 arms + up to 10 treatment hooks ≈ 30 hermes invocations ;
 expect several hours per round on this hardware. `--limit 10` = the full round.
 
-## 7. Verification completed (offline)
+## 6. Verification completed (offline)
 
-- `python -m py_compile` on all edited modules; `benchmark/infrastructure_recovery.py` imports cleanly.
+- `python -m py_compile` on all edited modules; `benchmark/infrastructure_recovery.py`
+  imports cleanly.
 - Full `tests_selftest.py` passes (**ALL OFFLINE SELF-TESTS PASSED**), including:
   - resume flow (rows replaced in canonical order, no tail-append);
   - orphan sweep (fake `uvicorn` detected, unrelated processes spared);
@@ -220,14 +221,14 @@ expect several hours per round on this hardware. `--limit 10` = the full round.
   - VTR 0.24 vs 0.0; SUR clamped; verdict printed `YES …` ✓
   - `results.xlsx` = metrics/summary/…/recovery/**case3** sheets
 
-## 8. Reminder — how to validate
+## 7. Reminder — how to validate
 
 - **Tests**: `tests_selftest.py` (fast, offline).
 - **Dry run**: `benchmark/run_benchmark.py --dry-run --limit 10` with a tier CSV.
-- **Live run**: the 5 commands in §6 above, then
-  `python analysis/metrics_engine.py --csv runs/case3_run/metrics.csv`.
+- **Live run**: the 5 commands in §5 above, then
+  `.venv\Scripts\python.exe analysis\metrics_engine.py --csv runs\case3_run\metrics.csv`.
 
-## 9. Known caveats
+## 8. Known caveats
 - SUR proxy: metrics.csv has no per-skill retrieval column, so SUR uses
   (after_skill_files − before_skill_files) on passed tasks, clamped to [0,100]
   (documented in the function).
