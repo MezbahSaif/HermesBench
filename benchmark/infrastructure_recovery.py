@@ -31,8 +31,12 @@ def _remove_windows_reserved_files(root: Path) -> None:
     """Delete files with Windows reserved device names (nul, con, prn, aux,
     com1-9, lpt1-9) that the agent may have created by misinterpreting shell
     redirects (e.g. `> nul`). Normal shutil.rmtree refuses to delete these
-    (PermissionError 13) because Windows treats them as devices; the \\?\
-    extended path prefix bypasses that."""
+    (PermissionError 13) because Windows treats them as devices.
+
+    Per spec §5.1: prepend the ``\\\\?\\`` extended-path prefix AND explicitly
+    run ``cmd /c "del /f /q \\\\\\\\?\\\\..."`` when a reserved device handle
+    is encountered (cmd's del is the only interpreter that handles them).
+    """
     if os.name != "nt":
         return
     reserved = {"nul", "con", "prn", "aux", "com1", "com2", "com3", "com4",
@@ -44,19 +48,48 @@ def _remove_windows_reserved_files(root: Path) -> None:
     # delete.
     for path in list(root.rglob("*")):
         if path.name.lower().split(".")[0] in reserved:
+            extended = "\\\\?\\" + str(path.resolve())
             try:
-                os.remove("\\\\?\\" + str(path.resolve()))
-            except OSError:
-                pass
+                subprocess.run(
+                    ["cmd", "/c", f'del /f /q "{extended}"'],
+                    capture_output=True, timeout=15,
+                )
+                if path.exists():
+                    os.remove(extended)
+            except (OSError, subprocess.SubprocessError):
+                try:
+                    os.remove(extended)
+                except OSError:
+                    pass
 
 
 def _process_table() -> list[dict]:
     """PID, parent PID, name and command line of every process (Windows).
 
-    Uses PowerShell's CIM provider so we get CommandLine (which the standard
-    psapi/toolhelp APIs do not expose without deeper tricks). Only called on
-    failure paths, so the ~1 s cost is irrelevant.
+    Uses psutil when available (spec §5.2), falling back to PowerShell's CIM
+    provider so we still get CommandLine (which the standard psapi/toolhelp
+    APIs do not expose without deeper tricks). Only called on failure paths,
+    so the ~1 s cost is irrelevant.
     """
+    try:
+        import psutil  # noqa: PLC0415 - optional dependency
+    except ImportError:
+        psutil = None
+    if psutil is not None:
+        rows = []
+        for p in psutil.process_iter(["pid", "ppid", "name", "cmdline"]):
+            try:
+                info = p.info
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+            cmdline = info.get("cmdline")
+            rows.append({
+                "pid": int(info.get("pid") or 0),
+                "ppid": int(info.get("ppid") or 0),
+                "name": str(info.get("name") or ""),
+                "cmdline": " ".join(cmdline) if cmdline else "",
+            })
+        return rows
     script = (
         "Get-CimInstance Win32_Process | "
         "ForEach-Object { \"$($_.ProcessId)|$($_.ParentProcessId)|$($_.Name)|$($_.CommandLine)\" }"

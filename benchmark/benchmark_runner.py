@@ -482,8 +482,8 @@ class BenchmarkRunner:
                 f"  [hook] skipped {task.task_id} (no target-diff in "
                 "work/) - refusing to persist an unverified solution"
             )
-        elif hook_eligible and self.case3_enabled and score is not None \
-                and score < self.hook_min_score:
+        elif hook_eligible and self.case3_enabled \
+                and (score is None or score < self.hook_min_score):
             # Quality gate: imperfect solutions must not write skills.
             hook_status = "skipped(score<1.0)"
             self.logger(

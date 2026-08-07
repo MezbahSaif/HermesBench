@@ -363,7 +363,7 @@ def case3_verdict(df: pd.DataFrame, delta_threshold: float = 0.05,
         text = ("VERDICT: YES (Hermes Agent natively self-improves "
                 "under quality gates)")
     else:
-        text = ("VERDICT: NO (Self-improvement hypothesis rejected; "
+        text = ("VERDICT: NO (Selfimprovement hypothesis rejected; "
                 "performance remains flat)")
     return {
         "delta_pass": delta,

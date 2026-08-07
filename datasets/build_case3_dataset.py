@@ -31,6 +31,18 @@ BASE = Path(__file__).resolve().parent
 VARIANT_DIR = BASE / "variants"
 ROUNDS = 5
 
+# Spec §6.1 taxonomy: `family` in the tier CSVs must be one of these domain
+# classifications. Maps the loader-internal family names onto the spec's set.
+FAMILY_TAXONOMY = {
+    "fastapi_setup": "web_api",
+    "refactor": "refactoring",
+    "write_tests": "testing",
+    "bug_fix": "bug_fixing",
+    "implement_function": "algorithms",
+    "cli_tool": "cli_tool",
+    "docker_configure": "devops",
+}
+
 # -------------------------------------------------------------------------- #
 # Curriculum board (this IS the Case-3 design; edit here, re-run the script). #
 # -------------------------------------------------------------------------- #
@@ -174,6 +186,8 @@ def main() -> None:
             for tid, tier in tasks:
                 row = dict(rows[tid])
                 row["tier"] = tier
+                row["family"] = FAMILY_TAXONOMY.get(
+                    row.get("family", ""), row.get("family", ""))
                 writer.writerow(row)
         print(
             f"{out.name} (n={len(tasks)}): "

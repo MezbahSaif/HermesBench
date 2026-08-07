@@ -177,12 +177,25 @@ def prune_failing_skills(home_dir: Path, session_logs) -> list[str]:
 
     found: set[str] = set()
     for text in texts:
+        # Spec §4.3: prune skills that were READ (used) during the failing
+        # session. skill_view is inherently a read; skill_manage only counts
+        # when action="read". Some loggers omit the action, so also accept a
+        # bare name/target grab.
         for m in re.finditer(
-            r"skill_(?:view|manage)[^\n]{0,160}"
+            r"skill_(?:view|manage)([^\n]{0,180})"
+            r"(?:action\s*=\s*[\"']read[\"'])?"
+            r"[^\n]{0,80}"
             r"((?:name|target)\s*[=:]\s*[\"']?([\w\-\.]+)[\"']?)",
             text, re.IGNORECASE,
         ):
-            name = (m.group(2) or m.group(1) or "").strip()
+            action = (m.group(1) or "").lower()
+            if m.group(0).startswith("skill_manage") \
+                    and "action" in action \
+                    and "read" not in action:
+                # skill_manage with an explicit non-read action (create/delete)
+                # did not consume the skill - nothing to prune here.
+                continue
+            name = (m.group(3) or m.group(2) or "").strip()
             if name and name.lower() != "benchmark_coding_contract":
                 found.add(name.replace(".md", ""))
     deleted: list[str] = []

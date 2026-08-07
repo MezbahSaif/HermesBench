@@ -1,5 +1,5 @@
 task_id,family,category,prompt,check_type,expected,threshold,rubric,banned,tier
-fastapi_catalog,fastapi_setup,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+fastapi_catalog,web_api,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: README.md, data.json.
 
@@ -17,7 +17,7 @@ app.py|@app.get(""/items/search""
 app.py|raise HTTPException(status_code=404
 app.py|data.json
 requirements.txt|fastapi",0.70,"fastapi_setup (medium): correct, working solution that satisfies every automated check.",,Repeat
-refactor_config,refactor,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+refactor_config,refactoring,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: ugly.py.
 
@@ -39,7 +39,7 @@ check(""all problems"", sorted(mod.validate({}))
       == sorted([""missing name"", ""port must be int""]))
 check(""no globals leak"", mod.validate({""name"": ""a"", ""port"": 1}) == [])
 ",0.70,"refactor (medium): correct, working solution that satisfies every automated check.",global ;_errs,Repeat
-write_tests_temperature,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+write_tests_temperature,testing,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: good.py, buggy.py.
 
@@ -54,7 +54,7 @@ Edit the files in the workdir using your file tools. When you provide code in yo
 ```).
 Your test code must be the ONLY code block in your reply.",test_suite,"GOOD_MODULE=good.py
 BUGGY_MODULE=buggy.py",0.70,"write_tests (hard): correct, working solution that satisfies every automated check.",,Repeat
-bug_fix_text_wrong_regex,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+bug_fix_text_wrong_regex,bug_fixing,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: main.py.
 
@@ -79,7 +79,7 @@ check(""splits on period"", len(mod.sentence_split(""Hello. World."")) == 2)
 check(""splits mixed"", len(mod.sentence_split(""One. Two! Three?"")) == 3)
 check(""no trailing empty"", mod.sentence_split(""Bye!"") == [""Bye!""])
 ",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",,Variant
-bug_fix_finance_offbyone,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+bug_fix_finance_offbyone,bug_fixing,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: main.py.
 
@@ -106,7 +106,7 @@ check(""tax default"", mod.compute_tax(100.0) == 7.5)
 check(""tax explicit"", mod.compute_tax(100.0, 0.10) == 10.0)
 check(""qty matters"", mod.compute_subtotal(mod.parse_lines([""a,x,4,1.0""])) == 4.0)
 ",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",,Variant
-implement_knapsack,implement_function,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+implement_knapsack,algorithms,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: solution.py.
 
@@ -125,7 +125,7 @@ check(""no reuse"", mod.knapsack(5, [2, 2, 2], [1, 1, 1]) == 2)
 check(""empty"", mod.knapsack(5, [], []) == 0)
 check(""choose heavy value"", mod.knapsack(8, [8, 1, 1, 1], [20, 2, 2, 2]) == 20)
 ",0.70,"implement_function (hard): correct, working solution that satisfies every automated check.",,Variant
-implement_flatten_json,implement_function,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+implement_flatten_json,algorithms,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: solution.py.
 
@@ -144,7 +144,7 @@ check(""empty"", mod.flatten_json({}) == {})
 check(""list kept"", mod.flatten_json({""l"": [{""n"": 1}]}) == {""l"": [{""n"": 1}]})
 check(""empty inner"", mod.flatten_json({""a"": {}, ""b"": 1}) == {""b"": 1})
 ",0.70,"implement_function (hard): correct, working solution that satisfies every automated check.",,Variant
-write_tests_stats,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+write_tests_stats,testing,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: good.py, buggy.py.
 
@@ -172,7 +172,7 @@ Edit the files in the workdir using your file tools. When you provide code in yo
 Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input people.csv --min-age 30 --job engineer
 Alice
 Dave",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",,New
-docker_streamlit_dashboard,docker_configure,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+docker_streamlit_dashboard,devops,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
 
 Workdir files you may need: app.py, requirements.txt, README.md.
 
