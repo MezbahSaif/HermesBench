@@ -97,6 +97,14 @@ invocation; any `nul`-style file the agent creates is stripped before the next
 restore. All verified by the offline self-tests (reserved-name restore +
 orphan sweep, see §7).
 
+**Scope assumption of the orphan sweep:** `kill_agent_orphans()` identifies
+leftover processes by name markers (`uvicorn`/`fastapi`/`flask`/`streamlit`/
+`hermes.exe`) only. That is safe on a benchmark-dedicated machine, but on a
+shared machine it could kill a developer's own dev server running in another
+terminal. This benchmark assumes the experiment PC has no unrelated
+uvicorn/flask-style servers running during the run (consistent with §5, same
+PC + LM Studio).
+
 ## 4. How the dataset was created (three tiers)
 
 `datasets/build_tiered_datasets.py` recombines the 34 existing task instances
@@ -166,6 +174,15 @@ Rounds 2–5 (add `--resume` so completed rows are kept):
 
 Per round this is 6 tasks × 2 arms + 6 treatment hooks ≈ 18 hermes invocations;
 expect roughly 1.5–3 h per round on this hardware.
+
+**Resume semantics (important):** `--resume` skips rows with a real result
+(`ok`/`failed`/`crashed`) and **re-runs rows that never produced one** —
+`timeout`, `skipped`, `harness-error`. The re-run replaces the old row **in
+place** at its canonical position (round → arm → dataset order, never appended
+at the end, never duplicated). So if a task times out mid-run, just re-run the
+same round with `--resume` and it retries only that task. The runner logs
+`[resume] N row(s) with retryable status (...) will be re-run and replaced in
+place` when that happens.
 
 Treatment home (`runs/tier_run/homes/treatment_home`) persists across rounds and
 receives the post-task memory hook; control home is wiped + re-seeded (skills
@@ -267,3 +284,73 @@ control contaminated → stop and fix before rounds 2–5`.
 - `tests_selftest.py` — extended for the `tier_verdict` sheet + xlsx sheet count
   + access-denied auto-recovery regression tests
 - `runs/other_run/` — **untouched** (Case 1 evidence, 80 rows)
+
+## 8. Post-run fix-brief outcomes (FIX_BRIEF.md, 2026-08-07)
+
+The run completed 60/60 (`ok`). Before writing the final verdict, three flagged
+issues in the metrics were investigated per `G:\FIX_BRIEF.md`. Findings:
+
+### 8a. Fix 1 — `write_tests_*` all scoring 0 → **diagnosed, NO re-run; not a harness bug**
+
+All 10 `write_tests_*` rows (5 rounds × 2 arms, 9 zeros + 1 pass) were
+reproduced through the real `_grade_test_suite` path with exact `score_detail`
+matches, and classified per row:
+
+| # | detail class | rows | cause |
+|---|---|---|---|
+| 4 | `runner-failed` | r1c temp, r3t cart, r3c cart, r4c banking | agent wrote real fenced tests using the **wrong-import differential idiom** (`import good as correct_module` / `from good import Cart`). The grader loads the module under the name `mod`, so `good`/`buggy` don't import → runner ImportError. (And even if workdir were on `sys.path` these tests only exercise `good`, so `buggy_pass == buggy_total` → still 0.0 — the proposed fix cannot help.) |
+| 3 | `runner-failed` | r2t stats, r2c stats, r5c urlparser | no code fence; prose-only response ("Tests verified: 14/14 pass against good.py…") that the no-fence fallback treats as code → `SyntaxError` → `runner-failed`. |
+| 2 | `no-tests` | r1t temp, r5t urlparser | no fence and not code-like (markdown table / prose) → extraction empty → `no-tests`. |
+| 1 | `good_ok/buggy_caught` (1.0) | r4t banking | the only correct row — used `mod.Account(...)` per the prompt contract; control same task (`import good`) → `runner-failed`. |
+
+Verdict: the harness grades what voyages; the zeros are genuinely agent-side
+(wrong idiom, no code), not a workdir/`sys.path` bug. Re-running would not
+change scores, so no re-run and no harness change.
+
+### 8b. Fix 2 — `r4 control fastapi_catalog` was an infra crash; re-run → 0.75
+
+The original row had **no real result**: usage
+`runs/tier_run/usage/r4_control_fastapi_catalog.json` records 90 API calls /
+2,166,689 tokens but `"completed": false`, `exit=1`, `response_chars=0`, no
+timeout, and `session_id 20260807_134822_bc5c76` is absent from all logs (a
+client-side abort, not agent behavior). The row was marked `harness-error`
+(metrics.csv backup pre-fix:
+`C:\Users\pc\AppData\Local\Temp\opencode\metrics_backup_pre_fix2.csv`) and
+re-run, replacing the row in place:
+
+```
+.venv\Scripts\python benchmark\run_benchmark.py --config config\config.yaml --run-id tier_run --dataset datasets\variants\tier_round_4.csv --round 4 --arm control --tasks fastapi_catalog --resume
+```
+
+(requires `--dataset tier_round_4.csv` — the default `datasets/benchmark.csv`
+has no `fastapi_catalog`). Result: `status=ok score=0.75` (`file_contains:6/8`),
+`duration_s=555.6`, `session 20260807_180200_7e303a`; metrics now 60 rows, 0
+dupes, canonical round→arm order; `results.xlsx` regenerated. Also cleaned the
+zero-byte reserved-name `nul` file the crash left in
+`datasets/variants/tasks/fastapi_catalog/` (PS `Remove-Item` refused reserved
+device names; `cmd /c "del \\?\G:\...\nul"` worked).
+
+### 8c. Fix 3 — `refactor_config` `file_code_exec:banned` is a task-side failure, reframed
+
+Banned rows (r2t, r4t and 2× control) are **not** "loop persisted but model
+ignored skills": tool logs show the agent never overwrites `work/ugly.py` in
+those rounds — it writes a ~278-char temp verify script, runs it, reports
+"verified", finishes. The grader then reads the pristine file (still `global`
+`_errs`) → `file_code_exec:banned`. The r1-hook skill
+(`refactor-global-state-to-local`, 7 KB, present in the treatment home) is
+specific and well-formed but teaches *verification*, not *persisting edits*,
+and r2/r4 never even opened it via `skill_view`. Reframe: **the loop did persist
+a lesson, but the lesson didn't target the failure that repeats** (the agent
+doesn't write the file). No re-run; note in write-up.
+
+### 8d. Final verdict after fixes
+
+- `tier_verdict`: still **40/40 `supported=False`** → **CLAIM NOT SUPPORTED**.
+- Whole-run per-arm means (mean of 6 task scores per round): treatment
+  0.667 / 0.500 / 0.701 / 0.667 / 0.729 (ALL **0.653**, n=30) vs control
+  0.722 / 0.646 / 0.500 / 0.625 / 0.812 (ALL **0.661**, n=30). Treatment does
+  not beat control; neither improves towards a practice-round trend.
+- The loop's write channel demonstrably worked (hook rows, `MEMORY.md`/skills
+  deltas, `state.db` growth, `skipped(tier=New)` on `cli_filter`), so Case 2 is
+  a faithful test of *context-augmentation* — and the honest case is still no
+  measurable self-improvement on these tasks.

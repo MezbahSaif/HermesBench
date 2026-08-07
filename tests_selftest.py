@@ -457,6 +457,47 @@ else:
         attempts=2, delay_s=0.3))
 shutil.rmtree(asec)
 
+# --- resume retries timed-out/skipped tasks, replacing rows in place -------
+# A timed-out (or skipped/harness-error) row must NOT count as "done" on
+# --resume: the task is re-run and its new row replaces the old one at the
+# canonical (round, arm, dataset) position - no duplicates, no tail appends.
+rt_dir = Path(tempfile.mkdtemp(prefix="selftest_retry_"))
+tier_tasks = ["fastapi_catalog", "refactor_config", "bug_fix_text_wrong_regex",
+              "implement_knapsack", "write_tests_temperature", "cli_filter"]
+rt_rows = []
+for i, tid in enumerate(tier_tasks):
+    rt_rows.append(dict(run_id="rt", round=1, arm="treatment", task_id=tid,
+                        family="f", category="c",
+                        tier="Repeat" if i < 2 else "Variant", status="ok",
+                        passed=True, score=1.0, score_detail="", threshold=0.7,
+                        duration_s=10.0, exit_code=0, timed_out=False,
+                        response_chars=1, api_calls=1, session_id="s",
+                        hook_status="ok"))
+rt_rows[1]["status"] = "timeout"
+rt_rows[1]["timed_out"] = True
+rt_rows[1]["passed"] = False
+rt_rows[1]["score"] = None
+pd.DataFrame(rt_rows).to_csv(rt_dir / "metrics.csv", index=False)
+rt_cfg = load_config(ROOT / "config" / "config.yaml")
+rt_cfg.setdefault("project", {})["dataset"] = str(
+    ROOT / "datasets" / "variants" / "tier_round_1.csv")
+rrt = BenchmarkRunner(rt_cfg, rt_dir, "rt", ["treatment"], 1,
+                      resume=True, dry_run=True, round_no=1)
+check("resume excludes timed-out row from done",
+      (1, "treatment", "refactor_config") not in rrt.done
+      and (1, "treatment", "fastapi_catalog") in rrt.done)
+rt_new = dict(rt_rows[1])
+rt_new.update(status="ok", timed_out=False, passed=True, score=0.9,
+              duration_s=20.0)
+rrt._replace_or_add_row(rt_new)
+rt_flushed = rrt._flush_metrics()
+rt_ids = rt_flushed[rt_flushed["round"] == 1]["task_id"].tolist()
+check("resume rerun replaces row in canonical order",
+      rt_ids == tier_tasks and len(rt_flushed) == len(tier_tasks)
+      and rt_flushed.loc[rt_flushed["task_id"] == "refactor_config",
+                         "status"].iloc[0] == "ok")
+shutil.rmtree(rt_dir)
+
 # orphan detection must flag a fake uvicorn (locked) and spare unrelated procs
 if os.name == "nt":
     fake = subprocess.Popen(

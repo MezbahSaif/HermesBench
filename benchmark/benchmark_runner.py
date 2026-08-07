@@ -289,12 +289,20 @@ class BenchmarkRunner:
         self.metrics_path = run_dir / "metrics.csv"
         self.rows: list[dict] = []
         self.done: set[tuple[int, str, str]] = set()
+        # Statuses that mean "no valid attempt happened": on resume these are
+        # re-run (the old row is replaced in place), not treated as done.
+        retryable_statuses = {"timeout", "skipped", "harness-error"}
         if resume and self.metrics_path.exists():
             old = pd.read_csv(self.metrics_path, dtype=str)
+            n_retry = 0
             for _, r in old.iterrows():
-                self.done.add(
-                    (int(float(r["round"])), r["arm"], r["task_id"])
-                )
+                status = str(r.get("status", "")).strip()
+                if status in retryable_statuses:
+                    n_retry += 1
+                else:
+                    self.done.add(
+                        (int(float(r["round"])), r["arm"], r["task_id"])
+                    )
                 row = r.to_dict()
                 for col, val in row.items():
                     if col in _STRING_COLUMNS:
@@ -302,6 +310,12 @@ class BenchmarkRunner:
                     row[col] = pd.to_numeric(val, errors="coerce")
                 self.rows.append(row)
             self.logger(f"[resume] found {len(self.done)} completed task rows")
+            if n_retry:
+                self.logger(
+                    f"[resume] {n_retry} row(s) with retryable status "
+                    f"({', '.join(sorted(retryable_statuses))}) will be "
+                    "re-run and replaced in place"
+                )
 
         # Load tasks once (applies limit / filters).
         self.tasks = load_dataset_from_config(config)
@@ -313,6 +327,9 @@ class BenchmarkRunner:
             self.tasks = self.tasks[:task_limit]
         if not self.tasks:
             raise ValueError("No tasks match the given filters")
+        # Dataset order of the loaded tasks, used to keep metrics rows in
+        # canonical (round, arm, dataset) order on every flush.
+        self.task_order = {t.task_id: i for i, t in enumerate(self.tasks)}
 
         # LM Studio judge client (used only by llm_judge tasks).
         ls = config["lmstudio"]
@@ -428,7 +445,7 @@ class BenchmarkRunner:
                                 timespec="seconds"
                             ),
                         }
-                        self._add_row_in_order(row)
+                        self._replace_or_add_row(row)
                         self._flush_metrics()
                         continue
                     if restored and not self.dry_run:
@@ -484,7 +501,7 @@ class BenchmarkRunner:
                                 timespec="seconds"
                             ),
                         }
-                    self._add_row_in_order(row)
+                    self._replace_or_add_row(row)
                     self._flush_metrics()
                     self.logger(
                         f"  [{i}/{len(self.tasks)}] {task.task_id}: "
@@ -654,39 +671,57 @@ class BenchmarkRunner:
         return row
 
     # ---------------------------------------------------------------- utils
-    def _add_row_in_order(self, row: dict) -> None:
-        """Insert a metrics row at its canonical position instead of the end.
+    def _replace_or_add_row(self, row: dict) -> None:
+        """Record a task row at its canonical position, replacing any previous
+        row for the same (round, arm, task_id).
 
-        Canonical order is contiguous (round, arm) blocks: round ascending,
-        treatment before control. Rows keep dataset order inside a block
-        (stable: a new row with an equal key goes after the existing ones).
-        This keeps the CSV correctly ordered even when a resume run completes
-        early tasks after later ones were already recorded.
+        Canonical order: round ascending, treatment before control, then
+        dataset order inside a block. When a resumed run re-executes a
+        timed-out/skipped task, its old row is removed and the fresh result
+        lands exactly where the task sits in the round (never a duplicate,
+        never appended at the end).
         """
+        order = getattr(self, "task_order", {})
         key = (
             float(row.get("round", 0)),
             {"treatment": 0, "control": 1}.get(row.get("arm"), 2),
+            order.get(str(row.get("task_id", "")), 1 << 30),
         )
+        dup_round = float(row.get("round", 0))
+        dup_arm = row.get("arm")
+        dup_task = str(row.get("task_id", ""))
+        self.rows = [
+            r for r in self.rows
+            if not (float(r.get("round", 0)) == dup_round
+                    and str(r.get("arm")) == str(dup_arm)
+                    and str(r.get("task_id", "")) == dup_task)
+        ]
+        order = getattr(self, "task_order", {})
         for i, existing in enumerate(self.rows):
             k = (
                 float(existing.get("round", 0)),
                 {"treatment": 0, "control": 1}.get(existing.get("arm"), 2),
+                order.get(str(existing.get("task_id", "")), 1 << 30),
             )
             if k > key:
                 self.rows.insert(i, row)
+                self.done.add((int(dup_round), dup_arm, dup_task))
                 return
         self.rows.append(row)
+        self.done.add((int(dup_round), dup_arm, dup_task))
 
     def _flush_metrics(self) -> pd.DataFrame:
-        # Keep the reservoir in canonical order: contiguous (round, arm) blocks
-        # with round ascending and treatment before control. New rows are
-        # appended in dataset/run order, so a stable sort puts late resume
-        # rows back inside their own block instead of at the file's end.
+        # Keep the reservoir in canonical order: round ascending, treatment
+        # before control, then dataset order inside a block. New rows are
+        # replaced into place, but a stable full sort guarantees the file is
+        # ordered even when a resume run completes rounds out of sequence.
+        order = getattr(self, "task_order", {})
         rows = sorted(
             self.rows,
             key=lambda r: (
                 float(r.get("round", 0)),
                 {"treatment": 0, "control": 1}.get(r.get("arm"), 2),
+                order.get(str(r.get("task_id", "")), 1 << 30),
             ),
         )
         df = pd.DataFrame(rows, columns=METRIC_COLUMNS)
