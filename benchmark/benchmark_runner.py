@@ -134,6 +134,11 @@ class BenchmarkRunner:
         self.metrics_path = run_dir / "metrics.csv"
         self.rows: list[dict] = []
         self.done: set[tuple[int, str, str]] = set()
+        # Per-round dataset order (round -> {task_id: index}). One round's CSV
+        # must never re-index another round's rows: fastapi_catalog etc.
+        # appear in several CSVs at different positions, so a single global
+        # order would scramble old rounds on resume.
+        self.round_order: dict[int, dict[str, int]] = {}
         # Statuses that mean "no valid attempt happened": on resume these are
         # re-run (the old row is replaced in place), not treated as done.
         retryable_statuses = {"timeout", "skipped", "harness-error"}
@@ -154,6 +159,13 @@ class BenchmarkRunner:
                         continue
                     row[col] = pd.to_numeric(val, errors="coerce")
                 self.rows.append(row)
+                # Preserve whatever per-round dataset order the file already
+                # had for these rows; the current round's CSV only re-indexes
+                # rows of the CURRENT round.
+                rd = int(float(row["round"]))
+                order_map = self.round_order.setdefault(rd, {})
+                if row["task_id"] not in order_map:
+                    order_map[row["task_id"]] = len(order_map)
             self.logger(f"[resume] found {len(self.done)} completed task rows")
             if n_retry:
                 self.logger(
@@ -175,6 +187,14 @@ class BenchmarkRunner:
         # Dataset order of the loaded tasks, used to keep metrics rows in
         # canonical (round, arm, dataset) order on every flush.
         self.task_order = {t.task_id: i for i, t in enumerate(self.tasks)}
+        # Rebuild the CURRENT round's map from its own CSV (fresh dataset
+        # order wins for this round; other rounds keep their stored order).
+        if round_no is not None:
+            cur = {t.task_id: i for i, t in enumerate(self.tasks)}
+            prev = self.round_order.get(round_no, {})
+            for i, t in enumerate(self.tasks):
+                prev.setdefault(t.task_id, i)
+            self.round_order[round_no] = {t.task_id: i for i, t in enumerate(self.tasks)}
 
         # LM Studio judge client (used only by llm_judge tasks).
         ls = config["lmstudio"]
@@ -580,6 +600,16 @@ class BenchmarkRunner:
         return row
 
     # ---------------------------------------------------------------- utils
+    def _row_rank(self, row: dict) -> tuple:
+        """(round, arm, dataset-order) sort key; dataset order is per-round."""
+        rd = int(float(row.get("round", 0)))
+        order_map = self.round_order.get(rd) or {}
+        return (
+            float(row.get("round", 0)),
+            {"treatment": 0, "control": 1}.get(row.get("arm"), 2),
+            order_map.get(str(row.get("task_id", "")), 1 << 30),
+        )
+
     def _replace_or_add_row(self, row: dict) -> None:
         """Record a task row at its canonical position, replacing any previous
         row for the same (round, arm, task_id).
@@ -590,12 +620,7 @@ class BenchmarkRunner:
         lands exactly where the task sits in the round (never a duplicate,
         never appended at the end).
         """
-        order = getattr(self, "task_order", {})
-        key = (
-            float(row.get("round", 0)),
-            {"treatment": 0, "control": 1}.get(row.get("arm"), 2),
-            order.get(str(row.get("task_id", "")), 1 << 30),
-        )
+        key = self._row_rank(row)
         dup_round = float(row.get("round", 0))
         dup_arm = row.get("arm")
         dup_task = str(row.get("task_id", ""))
@@ -605,14 +630,8 @@ class BenchmarkRunner:
                     and str(r.get("arm")) == str(dup_arm)
                     and str(r.get("task_id", "")) == dup_task)
         ]
-        order = getattr(self, "task_order", {})
         for i, existing in enumerate(self.rows):
-            k = (
-                float(existing.get("round", 0)),
-                {"treatment": 0, "control": 1}.get(existing.get("arm"), 2),
-                order.get(str(existing.get("task_id", "")), 1 << 30),
-            )
-            if k > key:
+            if self._row_rank(existing) > key:
                 self.rows.insert(i, row)
                 self.done.add((int(dup_round), dup_arm, dup_task))
                 return
@@ -621,18 +640,11 @@ class BenchmarkRunner:
 
     def _flush_metrics(self) -> pd.DataFrame:
         # Keep the reservoir in canonical order: round ascending, treatment
-        # before control, then dataset order inside a block. New rows are
-        # replaced into place, but a stable full sort guarantees the file is
-        # ordered even when a resume run completes rounds out of sequence.
-        order = getattr(self, "task_order", {})
-        rows = sorted(
-            self.rows,
-            key=lambda r: (
-                float(r.get("round", 0)),
-                {"treatment": 0, "control": 1}.get(r.get("arm"), 2),
-                order.get(str(r.get("task_id", "")), 1 << 30),
-            ),
-        )
+        # before control, then per-round dataset order inside a block. New
+        # rows are replaced into place, but a stable full sort guarantees the
+        # file is ordered even when a resume run completes rounds out of
+        # sequence.
+        rows = sorted(self.rows, key=self._row_rank)
         df = pd.DataFrame(rows, columns=METRIC_COLUMNS)
         # Resumed rows arrive as "True"/"False" strings (kept by
         # _STRING_COLUMNS); normalize to real booleans so the CSV round-trips

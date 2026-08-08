@@ -426,6 +426,41 @@ check("resume appends without erasing", len(acc2) == 2
       and set(acc2["round"]) == {1, 2})
 shutil.rmtree(resume_dir)
 
+# --- per-round dataset order must survive multi-round resume ----------------
+# Regression: _flush_metrics sorted the WHOLE reservoir with the CURRENT
+# round's task_order, so running Round N with a different CSV rearranged old
+# rounds' rows (e.g. implement_knapsack jumps ahead of bug_fix_* after R2).
+# Round ordering must be per-round: each round sorts by ITS OWN dataset CSV.
+mr_dir = Path(tempfile.mkdtemp(prefix="selftest_multiorder_"))
+mr_cfg = load_config(ROOT / "config" / "config.yaml")
+mr_cfg.setdefault("project", {})["dataset"] = str(
+    ROOT / "datasets" / "variants" / "tier_round_1.csv")
+mr_t1 = [t.task_id for t in load_tasks(
+    Path(mr_cfg["project"]["dataset"]))[:10]]
+mr_rows = []
+for i, tid in enumerate(mr_t1):
+    mr_rows.append(dict(run_id="mr", round=1, arm="treatment", task_id=tid,
+                        family="f", category="c", tier="Variant", status="ok",
+                        passed=True, score=1.0, threshold=0.7, duration_s=1.0))
+pd.DataFrame(mr_rows).to_csv(mr_dir / "metrics.csv", index=False)
+for rnd in (2, 3):            # round 2 (different CSV) must not reorder round 1
+    cfg2 = dict(mr_cfg)
+    cfg2["project"]["dataset"] = str(
+        ROOT / "datasets" / "variants" / f"tier_round_{rnd}.csv")
+    r2 = BenchmarkRunner(cfg2, mr_dir, "mr", ["treatment"], 1,
+                         resume=True, dry_run=True, round_no=rnd)
+    new_rows = [dict(round=rnd, arm="treatment", task_id=t,
+                     family="f", category="c", tier="Variant", status="ok",
+                     passed=True, score=1.0, threshold=0.7, duration_s=1.0)
+                for t in mr_t1[:3]]
+    for row in new_rows:
+        r2._replace_or_add_row(row)
+    fl = r2._flush_metrics()
+r1_ids = fl[fl["round"] == 1]["task_id"].tolist()
+check("multi-round: old round keeps its own dataset order", r1_ids == mr_t1)
+check("multi-round: total rows accumulate", len(fl) == len(mr_t1) + 6)
+shutil.rmtree(mr_dir)
+
 # --- access-denied auto-recovery (Windows reserved names + orphan sweep) ---
 from benchmark.benchmark_runner import (restore_workspace, _agent_orphans,
                                         kill_agent_orphans)
