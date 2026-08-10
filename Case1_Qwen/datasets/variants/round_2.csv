@@ -1,0 +1,157 @@
+task_id,family,category,prompt,check_type,expected,threshold,rubric,banned
+bug_fix_scheduling_offbyone,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: main.py.
+
+TASK: The module `main.py` contains a software defect (shift-scheduling logic). Find the bug and fix it IN PLACE in main.py (overlap detection, merging, hours). Do not change the module's public API, do not add new dependencies, do not weaken behavior.
+Files in the workdir are yours to edit.
+Difficulty: medium (a ~40-line module with a seeded logic bug).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the fixed module passes all of the project's unit tests (run them if you can).",file_code_exec,"main.py
+a = mod.Shift(""a"", 0, 2)
+b = mod.Shift(""b"", 2, 4)
+check(""no touch overlap"", not mod.is_overlap(a, b))
+check(""real overlap"", mod.is_overlap(a, mod.Shift(""x"", 1, 3)))
+m = mod.merge_shifts([mod.Shift(""a"", 4, 6), mod.Shift(""a"", 0, 2), mod.Shift(""a"", 1, 3)])
+check(""merge pairs"", len(m) == 2)
+check(""merge keeps last"", m[-1].end == 6)
+m2 = mod.merge_shifts([mod.Shift(""a"", 0, 2), mod.Shift(""a"", 2, 4)])
+check(""merge touching"", len(m2) == 1)
+check(""total hours"",
+      mod.total_hours([mod.Shift(""a"", 0, 2), mod.Shift(""b"", 3, 8)]) == 7)
+check(""empty total"", mod.total_hours([]) == 0)
+check(""merge does not mutate"", (lambda s: (mod.merge_shifts(s), len(s)))([mod.Shift(""a"", 1, 3), mod.Shift(""a"", 0, 2)])[1] == 2)
+",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",
+bug_fix_finance_wrong_accum,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: main.py.
+
+TASK: The module `main.py` contains a software defect (invoice total computation). Find the bug and fix it IN PLACE in main.py (invoice parsing, subtotal, bulk discount, tax). Do not change the module's public API, do not add new dependencies, do not weaken behavior.
+Files in the workdir are yours to edit.
+Difficulty: medium (a ~50-line module with a seeded logic bug).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the fixed module passes all of the project's unit tests (run them if you can).",file_code_exec,"main.py
+check(""parses 3 rows"",
+      len(mod.parse_lines([""a,x,2,1.5"", ""b,y,3,2.0"", ""c,z,1,0.5""])) == 3)
+check(""skips malformed"",
+      len(mod.parse_lines([""a,x,2,1.5"", ""oops"", ""b,y,3,2.0""])) == 2)
+items = mod.parse_lines([""a,x,2,1.5"", ""b,y,3,2.0""])
+check(""subtotal"", mod.compute_subtotal(items) == 9.0)
+check(""subtotal counts last item"",
+      mod.compute_subtotal(mod.parse_lines([""a,x,1,1.0"", ""b,y,1,1.0"", ""c,z,1,1.0""])) == 3.0)
+check(""bulk at boundary"", mod.apply_bulk_discount(500.0) == 450.0)
+check(""bulk above"", mod.apply_bulk_discount(600.0) == 540.0)
+check(""no bulk below"", mod.apply_bulk_discount(499.99) == 499.99)
+check(""tax default"", mod.compute_tax(100.0) == 7.5)
+check(""tax explicit"", mod.compute_tax(100.0, 0.10) == 10.0)
+check(""qty matters"", mod.compute_subtotal(mod.parse_lines([""a,x,4,1.0""])) == 4.0)
+",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",
+cli_sales,cli_tool,se_complex,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, orders.csv.
+
+TASK: Build a small command-line tool from the spec in `README.md` (sales summary CLI). Create `cli.py` in the workdir using argparse (flags exactly as documented in the spec). The tool must read the data file from the current directory and print output to stdout in the exact format shown in the spec.
+Difficulty: complex (CLI contract must match exactly).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input orders.csv --top 2
+Widget:10.50
+Gadget:4.00",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",
+cli_word_freq,cli_tool,se_complex,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, text.txt.
+
+TASK: Build a small command-line tool from the spec in `README.md` (word frequency CLI). Create `cli.py` in the workdir using argparse (flags exactly as documented in the spec). The tool must read the data file from the current directory and print output to stdout in the exact format shown in the spec.
+Difficulty: complex (CLI contract must match exactly).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input text.txt --top 3
+the:4
+cat:2
+dog:2",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",
+docker_flask_api,docker_configure,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: app.py, requirements.txt, README.md.
+
+TASK: Containerize the project in the workdir (a Flask REST API). Create a `Dockerfile` and a `docker-compose.yml` that follow current best practices (slim base image pinned to a major version, workdir set, dependencies installed from `requirements.txt`, non-default exposed port, healthcheck where reasonable). The compose service must build from the local Dockerfile, publish the app port, and mount the app as a volume.
+Difficulty: medium (containerization conventions).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: a valid Dockerfile and compose file that would build and run the app.",file_contains,"Dockerfile|FROM python:3.11-slim
+Dockerfile|WORKDIR /app
+Dockerfile|COPY
+Dockerfile|RUN pip install
+Dockerfile|CMD
+Dockerfile|EXPOSE 5000
+docker-compose.yml|services:
+docker-compose.yml|build:
+docker-compose.yml|ports:
+docker-compose.yml|5000",0.70,"docker_configure (medium): correct, working solution that satisfies every automated check.",
+docker_streamlit_dashboard,docker_configure,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: app.py, requirements.txt, README.md.
+
+TASK: Containerize the project in the workdir (a Streamlit dashboard). Create a `Dockerfile` and a `docker-compose.yml` that follow current best practices (slim base image pinned to a major version, workdir set, dependencies installed from `requirements.txt`, non-default exposed port, healthcheck where reasonable). The compose service must build from the local Dockerfile, publish the app port, and mount the app as a volume.
+Difficulty: medium (containerization conventions).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: a valid Dockerfile and compose file that would build and run the app.",file_contains,"Dockerfile|FROM python:3.11-slim
+Dockerfile|WORKDIR /app
+Dockerfile|COPY
+Dockerfile|RUN pip install
+Dockerfile|CMD
+Dockerfile|EXPOSE 8501
+docker-compose.yml|services:
+docker-compose.yml|build:
+docker-compose.yml|ports:
+docker-compose.yml|8501",0.70,"docker_configure (medium): correct, working solution that satisfies every automated check.",
+fastapi_orders,fastapi_setup,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, data.json.
+
+TASK: Build a small FastAPI application from the spec in `README.md` (order API that computes totals). Create `app.py` (and `requirements.txt` if needed) in the workdir. Follow the spec exactly: endpoints, status codes, error handling (404 for missing resources), and request/response shapes.
+Difficulty: medium (multi-endpoint API with error handling).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every endpoint from the spec exists with the documented behavior.",file_contains,"app.py|from fastapi import FastAPI, HTTPException
+app.py|app = FastAPI(
+app.py|@app.get(""/orders""
+app.py|@app.get(""/orders/{order_id}""
+app.py|@app.post(""/orders""
+app.py|raise HTTPException(status_code=404
+app.py|""total""
+requirements.txt|fastapi",0.70,"fastapi_setup (medium): correct, working solution that satisfies every automated check.",
+fastapi_todos,fastapi_setup,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, data.json.
+
+TASK: Build a small FastAPI application from the spec in `README.md` (todo list API). Create `app.py` (and `requirements.txt` if needed) in the workdir. Follow the spec exactly: endpoints, status codes, error handling (404 for missing resources), and request/response shapes.
+Difficulty: medium (multi-endpoint API with error handling).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every endpoint from the spec exists with the documented behavior.",file_contains,"app.py|from fastapi import FastAPI, HTTPException
+app.py|app = FastAPI(
+app.py|@app.get(""/todos""
+app.py|@app.get(""/todos/{todo_id}""
+app.py|@app.post(""/todos""
+app.py|@app.delete(""/todos/{todo_id}""
+app.py|raise HTTPException(status_code=404
+requirements.txt|fastapi",0.70,"fastapi_setup (medium): correct, working solution that satisfies every automated check.",

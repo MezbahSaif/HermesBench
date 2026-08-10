@@ -1,0 +1,122 @@
+# =============================================================================
+# HermesBench configuration
+# Benchmark framework for evaluating the claim that Hermes Agent is a
+# "self-improving AI agent" (Nous Research learning loop: skills + memory).
+# =============================================================================
+
+project:
+  name: HermesBench
+  dataset: "datasets/benchmark.csv"
+  # Shared task workspaces: ONE copy lives at the repo root
+  # (datasets/variants/tasks) and is used by all three case folders.
+  tasks_dir: "../datasets/variants/tasks"
+  research_question: >-
+    Does Hermes Agent demonstrate measurable self-improvement over repeated
+    benchmark execution (faster, more accurate, fewer tool calls, fewer
+    retries, fewer errors)?
+
+hermes:
+  # Path to the hermes CLI executable (one-shot headless mode is used).
+  # ${LOCALAPPDATA} expands to the Windows per-user app-data folder, so
+  # this config works on any machine (auto-detected if missing anyway).
+  executable: "${LOCALAPPDATA}/hermes/hermes-agent/venv/Scripts/hermes.exe"
+  # The user's real Hermes home. Used ONLY to seed the isolated benchmark
+  # homes (config.yaml + .env + skills). Never written to directly.
+  real_home: "${LOCALAPPDATA}/hermes"
+  # Seed the real home's bundled skills/ tree into every bench home, so both
+  # arms start from Hermes's real pre-existing knowledge base and the only
+  # difference left is what the agent writes (or fails to write) during the
+  # experiment.
+  seed_skills: true
+  # Leave empty to use whatever the seeded config.yaml defines.
+  model: ""
+  provider: ""
+  # Extra CLI flags for `hermes -z` (one-shot mode already auto-enables
+  # yolo-mode and hook auto-accept).
+  extra_args: []
+  # Per-invocation wall-clock timeout in seconds.
+  timeout_s: 900
+
+# Post-task "learning hook": after each treatment-arm task, run one more
+# short `hermes -z` session that explicitly directs the agent to persist
+# lessons with its native memory (memories/MEMORY.md) and skill tools. This
+# is the write trigger that one-shot mode alone never fires - without it,
+# the treatment arm accumulates sessions but never distills knowledge.
+learning_hook:
+  enabled: true
+  # Which arm gets the hook. The control arm must stay hook-free.
+  arm: treatment
+  # Tiers the hook must NOT touch (New is the specificity control).
+  exclude_tiers: [New]
+
+# Case 3 (quality-gated A/B trajectory test). See docs/CASE3_PLAN.md.
+# These flags harden the learning loop: the hook fires ONLY on clean,
+# target-diff-verified solutions, failing skills are pruned, and both arms
+# are seeded with a mandatory formatting contract.
+case3:
+  enabled: true
+  # Seed skills/benchmark_coding_contract.md into BOTH arms' homes before
+  # round 1, so the mandatory formatting contract is present everywhere.
+  seed_contract_skill: "skills/benchmark_coding_contract.md"
+  # Target-diff quality gate: only run the post-task reflection hook when
+  # the agent verifiably modified work/ files (git status or mtime).
+  require_workdir_diff: true
+  # Only hook solutions that scored a perfect 1.0 (spec §4.2).
+  hook_min_score: 1.0
+  # Use the adversarial reflection prompt (§4.2) instead of the plain hook.
+  adversarial_hook: true
+  # Delete skills used during failing tasks (§4.3).
+  prune_failing_skills: true
+  # Metrics: PassRate benchmark AND Fisher-exact gate for the final verdict.
+  delta_pass_threshold: 0.05
+  alpha: 0.05
+
+lmstudio:
+  base_url: "http://127.0.0.1:1234/v1"
+  # Empty = use the same model as hermes. A stronger judge model reduces
+  # self-grading bias, but same-model judging is a documented limitation.
+  judge_model: ""
+  judge_api_key: "lm-studio"
+  judge_timeout_s: 180
+
+benchmark:
+  # Number of full passes over the task battery (each pass = one round).
+  rounds: 5
+  # Which arms to run: treatment (learning loop ON across rounds),
+  # control (state reset every round), or both.
+  arms: ["treatment", "control"]
+  # Limit number of tasks per round (None = all). The CLI --limit flag
+  # overrides this; the case-2 plan runs each tiered round with --limit 6.
+  task_limit: 6
+  # Score threshold above which a task counts as passed.
+  pass_threshold: 0.7
+  # Total wall-clock timeout per task.
+  task_timeout_s: 900
+
+log_metrics:
+  # Patterns counted in the agent log within each task's [start, end] window.
+  # These are heuristic signals; matched case-insensitively as substrings.
+  # Hermes logs tool activity as "tool <name> completed (...s, ... chars)",
+  # "tool <name> failed (...)", "Tool <name> returned error (...)".
+  tool_call_patterns:
+    - "tool "
+    - " completed ("
+    - " returned error ("
+    - " cancelled ("
+  error_patterns:
+    - "ERROR"
+    - "Traceback"
+    - "Exception"
+    - " failed ("
+    - " raised for "
+    - "Command failed"
+    - "exit code"
+  retry_patterns:
+    - "retry"
+    - "Retrying"
+    - "max_retries"
+  reflection_patterns:
+    - "reflection"
+    - "Reflecting"
+    - "self-critique"
+    - "rethink"

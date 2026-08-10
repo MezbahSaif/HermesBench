@@ -1,0 +1,113 @@
+task_id,family,category,prompt,check_type,expected,threshold,rubric,banned,tier
+fastapi_catalog,fastapi_setup,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, data.json.
+
+TASK: Build a small FastAPI application from the spec in `README.md` (item catalog API with search). Create `app.py` (and `requirements.txt` if needed) in the workdir. Follow the spec exactly: endpoints, status codes, error handling (404 for missing resources), and request/response shapes.
+Difficulty: medium (multi-endpoint API with error handling).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every endpoint from the spec exists with the documented behavior.",file_contains,"app.py|from fastapi import FastAPI, HTTPException
+app.py|app = FastAPI(
+app.py|@app.get(""/items""
+app.py|@app.get(""/items/{item_id}""
+app.py|@app.get(""/items/search""
+app.py|raise HTTPException(status_code=404
+app.py|data.json
+requirements.txt|fastapi",0.70,"fastapi_setup (medium): correct, working solution that satisfies every automated check.",,Repeat
+refactor_config,refactor,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: ugly.py.
+
+TASK: Refactor `ugly.py` (config validator with global error buffer and duplicated checks). The code works but violates basic engineering standards: it relies on module-level global state and duplicate logic. Rewrite it as clean, well-structured code: split the logic into small focused functions with docstrings, use module-level constants instead of mutable globals, and remove all duplicated blocks. The public API (function names and signatures) must stay identical and the behavior must be preserved exactly.
+Difficulty: medium-hard (structural refactor, behavior must not change).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: all hidden unit tests pass AND no global-state anti-patterns remain.",file_code_exec,"ugly.py
+check(""valid cfg"",
+      mod.validate({""name"": ""api"", ""port"": 8080, ""hosts"": [""a""]}) == [])
+check(""missing name once"", mod.validate({""port"": 8080}).count(""missing name"") == 1)
+check(""port type"", mod.validate({""name"": ""x"", ""port"": ""8080""})
+      == [""port must be int""])
+check(""empty hosts once"",
+      mod.validate({""name"": ""x"", ""port"": 1, ""hosts"": []}).count(""hosts empty"") == 1)
+check(""all problems"", sorted(mod.validate({}))
+      == sorted([""missing name"", ""port must be int""]))
+check(""no globals leak"", mod.validate({""name"": ""a"", ""port"": 1}) == [])
+",0.70,"refactor (medium): correct, working solution that satisfies every automated check.",global ;_errs,Repeat
+bug_fix_text_wrong_regex,bug_fix,se_medium,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: main.py.
+
+TASK: The module `main.py` contains a software defect (text-processing helpers). Find the bug and fix it IN PLACE in main.py (slugify, word frequency, sentence splitting). Do not change the module's public API, do not add new dependencies, do not weaken behavior.
+Files in the workdir are yours to edit.
+Difficulty: medium (a ~40-line module with a seeded logic bug).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the fixed module passes all of the project's unit tests (run them if you can).",file_code_exec,"main.py
+check(""slug lower"", mod.slugify(""Hello World"") == ""hello-world"")
+check(""slug punct"", mod.slugify(""Hi, there!!  Plan B"") == ""hi-there-plan-b"")
+freq = mod.word_frequency(""the cat and the dog, the mouse"")
+check(""freq counts"", freq[""the""] == 3)
+check(""freq min_len includes 3"", freq[""and""] == 1)
+check(""freq counts last word"",
+      mod.word_frequency(""alpha beta gamma"")[""gamma""] == 1)
+f2 = mod.word_frequency(""a to the bee"")
+check(""freq excludes short"", ""to"" not in f2)
+check(""splits on period"", len(mod.sentence_split(""Hello. World."")) == 2)
+check(""splits mixed"", len(mod.sentence_split(""One. Two! Three?"")) == 3)
+check(""no trailing empty"", mod.sentence_split(""Bye!"") == [""Bye!""])
+",0.70,"bug_fix (medium): correct, working solution that satisfies every automated check.",,Variant
+implement_knapsack,implement_function,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: solution.py.
+
+TASK: Implement the function described in `solution.py` (0/1 knapsack dynamic programming). Replace the `raise NotImplementedError` body with a correct, efficient implementation in `solution.py`. Handle edge cases (empty inputs, boundaries). Do not change the signature. The project's hidden unit tests will be run against your file.
+Difficulty: hard (non-trivial algorithm, edge cases).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: every hidden unit test passes.",file_code_exec,"solution.py
+check(""example"", mod.knapsack(10, [5, 4, 6, 3], [10, 40, 30, 50]) == 90)
+check(""zero capacity"", mod.knapsack(0, [1, 2], [5, 9]) == 0)
+check(""heavy items"", mod.knapsack(3, [4, 5], [100, 200]) == 0)
+check(""exact fit"", mod.knapsack(6, [2, 3, 4], [3, 4, 5]) == 8)
+check(""no reuse"", mod.knapsack(5, [2, 2, 2], [1, 1, 1]) == 2)
+check(""empty"", mod.knapsack(5, [], []) == 0)
+check(""choose heavy value"", mod.knapsack(8, [8, 1, 1, 1], [20, 2, 2, 2]) == 20)
+",0.70,"implement_function (hard): correct, working solution that satisfies every automated check.",,Variant
+write_tests_temperature,write_tests,se_hard,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: good.py, buggy.py.
+
+TASK: The project contains two versions of the same module: `good.py` (correct) and `buggy.py` (one deliberately seeded defect). Your job is to write a unit test suite that would catch the defect (average truncates instead of rounding). Requirements:
+1. Every test must pass against the correct module.
+2. At least one test must FAIL against the buggy module.
+3. Use `import mod` to reach the module under test and write plain functions named `test_*` containing `assert` statements (no test framework needed). Cover edge cases, not just happy paths.
+Difficulty: hard (test design; the bug is subtle).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Your test code must be the ONLY code block in your reply.",test_suite,"GOOD_MODULE=good.py
+BUGGY_MODULE=buggy.py",0.70,"write_tests (hard): correct, working solution that satisfies every automated check.",,Variant
+cli_filter,cli_tool,se_complex,"You are a software engineer working on a real codebase. Be precise: write clean, working code and verify your own work before finishing.
+
+Workdir files you may need: README.md, people.csv.
+
+TASK: Build a small command-line tool from the spec in `README.md` (CSV filter CLI). Create `cli.py` in the workdir using argparse (flags exactly as documented in the spec). The tool must read the data file from the current directory and print output to stdout in the exact format shown in the spec.
+Difficulty: complex (CLI contract must match exactly).
+Edit the files in the workdir using your file tools. When you provide code in your reply, wrap each file in a code fence named after the file path (e.g. ```python
+# main.py
+...
+```).
+Expected: the grader runs your `cli.py` with documented arguments and compares stdout line-by-line.",command_check,"CMD:python cli.py --input people.csv --min-age 30 --job engineer
+Alice
+Dave",0.70,"cli_tool (complex): correct, working solution that satisfies every automated check.",,New

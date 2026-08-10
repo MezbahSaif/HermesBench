@@ -1,94 +1,37 @@
-# HermesBench
+# HermesBench — repository layout
 
-Benchmark framework for a university research project: does **Hermes Agent**
-(Nous Research) measurably **self-improve** over repeated benchmark execution?
+Three independent, runnable experiment cases, each in its own folder.
+Everything a case needs that differs from the others lives INSIDE its folder.
+Anything all cases use identically lives HERE at the root, once.
 
-Design: **5 rounds × 14 tasks × 2 arms**. Each task is a fresh one-shot
-`hermes -z` session on a frozen model (LM Studio). The treatment arm's Hermes
-home persists across rounds (skills/memory accumulate); the control arm's home
-is wiped and re-seeded every round. Trend analysis (Mann-Kendall, Welch)
-decides whether the learning loop causes the improvement.
+## The three cases
 
-## Commands (PowerShell, from the project root)
+| Folder | Case | Original run | Harness era (commit) | Rounds |
+|---|---|---|---|---|
+| `Case1_Qwen/` | 1 — naive baseline (no loop) | `other_run` (80 rows) | `9760ca1` | 8 tasks × 5 |
+| `Case2_Qwen/` | 2 — unfiltered learning hook | `tier_run` (60 rows) | `3a34e64` | 6 tasks × 5 |
+| `Case3_Qwen/` | 3A — quality-gated loop | `case3_run` (100 rows) | `736ce15` | 10 tasks × 5 |
 
-```powershell
-# environment check (creates venv + installs requirements on first run)
-powershell -ExecutionPolicy Bypass -File .\verify_setup.ps1
+Each folder has its own `README.md` with exact run commands
+(`run_rounds.ps1`), its own config, datasets, tests, and plan docs. Running
+one case never touches the others.
 
-# environment-only check, no agent executions
-.\.venv\Scripts\python benchmark\run_benchmark.py --dataset datasets\variants\round_1_se.csv --dry-run
+## Shared (ONE copy, used by all cases — do not duplicate)
 
-# the experiment, one round at a time (~2 h each)
-.\.venv\Scripts\python benchmark\run_benchmark.py --dataset datasets\variants\round_1_se.csv --round 1 --arm both --run-id thesis_run
-.\.venv\Scripts\python benchmark\run_benchmark.py --dataset datasets\variants\round_1_se.csv --round 2 --arm both --run-id thesis_run --resume
-# ... rounds 3-5 identical except --round N, always with --resume
+- `datasets/variants/tasks/` — the 34 task instances (pristine + work). The
+  case harnesses resolve this via `project.tasks_dir` in each case's config.
+- `.venv/` — the Python environment.
+- `runs/` — all historical results (untouched; new runs land inside each
+  case folder at `CaseN_Qwen/runs/<run-id>/`).
+- `docs/RUNS_SUMMARY.md`, `docs/FACULTY_PRESENTATION.md` — shared write-ups.
+- `datasets/benchmark.csv`, `datasets/tasks/`, `datasets/generate_tasks.py` —
+  legacy base assets/tools.
 
-# crash recovery: rerun the same round's command with --resume
-# stray agents after a crash:
-taskkill /F /IM hermes.exe
+## Notes
 
-# results + full report package (xlsx + plots) after round 5
-.\.venv\Scripts\python analysis\metrics_engine.py --csv runs\thesis_run\metrics.csv
-# dashboard
-.\.venv\Scripts\streamlit run ui\app.py
-
-# offline self-tests (validates loaders, graders, stats — no model needed)
-.\.venv\Scripts\python tests_selftest.py
-
-# regenerate dataset variants (only when changing the generator)
-.\.venv\Scripts\python datasets\generate_tasks.py --rounds 5 --per-family 2 --seed 42
-# regenerate the task-overview doc
-.\.venv\Scripts\python make_tasks_overview.py
-```
-
-## Rules — never break
-
-- Always the **same** `--dataset datasets\variants\round_1_se.csv` and
-  `--run-id thesis_run`; add `--resume` after the first chunk.
-- Never delete `runs\thesis_run\` between rounds.
-- The v1 default dataset (`datasets/benchmark.csv`) is **not** the experiment —
-  always pass `--dataset`. It's the original 16-task smoke dataset; most of its
-  workdirs hold no fixtures (only `.gitkeep`), so results are meaningless, not
-  thesis data.
-- LM Studio must be running (model loaded, server on port 1234) before any real
-  run. One model, one machine for the whole run (thesis validity).
-- Never commit `runs/`, `logs/`, `.venv/`, `metrics/` (gitignored). `homes/`
-  under a run dir contains machine-specific config/API keys — never share.
-
-## Known gotchas
-
-- `*_log_events` metrics (tool calls, errors, retries, reflections) are
-  **always 0 on a stock Hermes install**: `hermes -z` used to call
-  `logging.disable(logging.CRITICAL)`, killing agent.log activity. The local
-  Hermes install is patched (hermes_cli/oneshot.py) to keep file logging
-  enabled, and `config/config.yaml` `log_metrics` patterns match Hermes' real
-  log lines (`tool <name> completed/failed`), so these are populated on this
-  machine. If Hermes is ever reinstalled/updated, the patch must be re-applied;
-  `api_calls` (from the usage JSON) remains the most reliable signal.
-- Grading is fully deterministic (Python checkers, no LLM judge in the SE
-  dataset). Score ≥ 0.7 → passed.
-- Task workdirs are restored from `pristine/` snapshots before every
-  execution — edits never leak between arms or rounds.
-- `human_interventions` = tasks that needed manual attention (timeout/crash),
-  not human clicks.
-
-## Layout
-
-```
-benchmark/       runner, hermes interface, graders, task loader, CLI, config loader
-analysis/        statistics (Mann-Kendall, Welch, bootstrap), graphs, metrics engine (xlsx/plots/verdict)
-ui/app.py        Streamlit dashboard (viewer + launcher)
-datasets/        benchmark.csv (v1, unused for the experiment),
-                 variants/round_N_se.csv (the 5 experiment rounds),
-                 variants/tasks/<id>/{work,pristine}/ (fixtures)
-config/config.yaml   hermes paths (${LOCALAPPDATA} portable), LM Studio, thresholds
-tests_selftest.py    offline regression suite (all fix behaviors)
-make_tasks_overview.py  regenerates TASKS_OVERVIEW.md from the round CSVs
-runs/<run_id>/    metrics.csv (canonical), results.xlsx, plots/, artifacts/, homes/
-```
-
-## Read first
-
-- `README.md` — full design, pipeline, metrics, limitations
-- `TASKS_OVERVIEW.md` — every task prompt the agent receives (rounds 1-5)
-- `config/config.yaml` — paths and thresholds
+- Case 1 and Case 2 harnesses are faithful reproductions of their era code
+  (the originals were overwritten during development; recovered from git).
+- The shared-tasks-dir patch is the single, identical change added to all
+  three harnesses.
+- Version history of everything is preserved in git (checkpoint commit
+  `1cb01e5` and earlier era commits).
