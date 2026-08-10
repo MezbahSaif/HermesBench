@@ -467,6 +467,7 @@ from benchmark.benchmark_runner import (restore_workspace, _agent_orphans,
 import os
 import subprocess
 import time
+from datetime import datetime, timedelta
 
 asec = Path(tempfile.mkdtemp(prefix="selftest_asec_"))
 apr = asec / "t" / "pristine"
@@ -564,6 +565,174 @@ if os.name == "nt":
             plain.kill()
         fake.wait()
         plain.wait()
+
+print()
+# ==================== case3b: tiered hook gate + memory-only mode ===========
+from benchmark.benchmark_runner import hook_gate
+
+elig = True
+# strict mode (case3a): only perfect solutions are hooked
+g = hook_gate("ok", 0.9, False, True, True, True, False, 1.0, 0.7,
+              adversarial=True)
+check("3b strict: 0.9 score skipped", g[0] == "skipped(score<1.0)")
+g = hook_gate("ok", 1.0, False, True, True, True, False, 1.0, 0.7,
+              adversarial=True)
+check("3b strict: 1.0 runs adversarial", g == (None, True, False))
+g = hook_gate("ok", 0.9, False, True, True, True, True, 1.0, 0.7,
+              adversarial=True)
+check("3b tiered: 0.9 runs memory-only", g == (None, False, True))
+g = hook_gate("ok", 1.0, False, True, True, True, True, 1.0, 0.7,
+              adversarial=True)
+check("3b tiered: 1.0 runs adversarial", g == (None, True, False))
+g = hook_gate("ok", 0.5, False, True, True, True, True, 1.0, 0.7,
+              adversarial=True)
+check("3b tiered: 0.5 skipped", g[0] == "skipped(score<1.0)")
+g = hook_gate("failed", 0.8, False, True, True, True, True, 1.0, 0.7,
+              adversarial=True)
+check("3b tiered: non-ok skipped", g[0] == "skipped(not-ok)")
+g = hook_gate("ok", 0.8, True, True, True, True, True, 1.0, 0.7,
+              adversarial=True)
+check("3b tiered: New tier skip label wins", g[0] == "skipped(tier=New)")
+g = hook_gate("failed", 0.8, True, True, True, True, True, 1.0, 0.7,
+              adversarial=True)
+check("3b tiered: New tier label even on not-ok",
+      g[0] == "skipped(tier=New)")
+g = hook_gate("ok", 0.8, False, True, True, False, True, 1.0, 0.7,
+              adversarial=True)
+check("3b tiered: no workdir diff skips", g[0] == "skipped(no-diff)")
+
+# ---- hermes_interface: hook timeout cap + memory-only prompt selection -----
+from benchmark.hermes_interface import HermesInterface, MEMORY_ONLY_HOOK_PROMPT
+import types
+
+hi_dir = Path(tempfile.mkdtemp(prefix="selftest_hi3b_"))
+cfg3b = load_config(ROOT / "config" / "config3b.yaml")
+cfg3b["hermes"]["executable"] = sys.executable  # never actually invoked
+c3 = cfg3b["case3"]
+check("3b config: hook_timeout_s=120", c3["hook_timeout_s"] == 120)
+check("3b config: tiered on", c3["hook_tiered"] is True)
+check("3b config: memory floor 0.7", c3["hook_memory_min_score"] == 0.7)
+check("3b config: inject_skills enabled",
+      c3["inject_skills"].get("enabled") is True)
+check("3b config: task cap 300s", cfg3b["hermes"]["timeout_s"] == 300)
+hi = HermesInterface(cfg3b, hi_dir, hi_dir / "work")
+check("3b iface: hook cap loaded", hi.hook_timeout_s == 120.0)
+
+class _Res:
+    exit_code = 0
+    return_str = ""
+    timed_out = False
+
+class _Task:
+    task_id = "t1"
+    prompt = "implement assertions and tests for this utility"
+    workdir = hi_dir / "w"
+
+hi_dir.joinpath("w").mkdir(exist_ok=True)
+calls = {}
+def _fake_invocation(self, prompt, workdir, usage_path, timeout_s=None):
+    calls["timeout"] = timeout_s
+    calls["prompt"] = prompt
+    return _Res()
+
+hi._invocation = types.MethodType(_fake_invocation, hi)
+hang = hi.run_learning_hook(_Task(), "ok, score=0.8", hi_dir / "u.json",
+                            adversarial=True, memory_only=True)
+check("3b memory-only hook ok", hang.ok is True)
+check("3b hook used capped timeout", calls["timeout"] == 120.0)
+check("3b memory-only prompt selected",
+      "NEVER create or modify any skill" in calls["prompt"])
+
+# adversarial path: 1.0 solutions still get the strict quality prompt
+hi.run_learning_hook(_Task(), "ok, score=1.0", hi_dir / "u2.json",
+                     adversarial=True, memory_only=False)
+check("3b adversarial prompt selected",
+      "CRITICAL QUALITY FILTER" in calls["prompt"])
+
+# ---- regression (reviewer 3): _invocation swallows TimeoutExpired and
+# ---- returns timed_out=True; run_learning_hook must record the timeout
+# ---- as an auditable error, not ok=False with error="". ----------------
+class _TimedOut(_Res):
+    exit_code = -1
+    timed_out = True
+
+def _slow_invocation(self, prompt, workdir, usage_path, timeout_s=None):
+    return _TimedOut()
+
+hi._invocation = types.MethodType(_slow_invocation, hi)
+hang = hi.run_learning_hook(_Task(), "ok, score=0.8", hi_dir / "u3.json",
+                            adversarial=True, memory_only=False)
+check("3b review3: timed-out hook not ok", hang.ok is False)
+check("3b review3: timeout error is recorded",
+      "hook timeout" in (hang.error or ""))
+check("3b review3: timeout leaves result for audit", hang.result is not None)
+
+# ---- 3b skill injection: no skills in a temp home -> empty. ----------------
+hi2 = HermesInterface(cfg3b, hi_dir, hi_dir / "w2")
+ctx = hi2._skill_injection_context(_Task())
+check("3b injection empty when no skills", ctx == "")
+shutil.rmtree(hi_dir)
+
+# ---- 3b injection: real skill dir + matching keyword -> preamble. ------------
+inj_dir = Path(tempfile.mkdtemp(prefix="selftest_inj3b_"))
+skills_dir = inj_dir / "skills" / "python"
+skills_dir.mkdir(parents=True)
+(skills_dir / "SKILL.md").write_text(
+    "# write-tests\nAlways wrap assertions in test_* functions.\n",
+    encoding="utf-8")
+hi3 = HermesInterface(cfg3b, inj_dir, inj_dir / "w3")
+inj_dir.joinpath("w3").mkdir(exist_ok=True)
+ctx = hi3._skill_injection_context(_Task())
+check("3b injection matches on keyword",
+      "RELEVANT SKILLS" in ctx and "write-tests" in ctx)
+shutil.rmtree(inj_dir)
+
+# ---- regression: control-arm rows must NEVER run the hook (fix #1). ---------
+# hook_gate is only consulted for eligible rows; a non-eligible (control)
+# row keeps hook_status=None, which must NOT be mistaken for 'hook should
+# run'. The runner guards with `hook_eligible and hook_status is None`; we
+# assert the gate contract that backs it: control/not-eligible never yields
+# (None, ...) with memory_only or adversarial execution intent.
+g = hook_gate("ok", 0.99, False, True, True, True, True, 1.0, 0.7,
+              adversarial=True)
+check("3b gate: near-perfect 0.99 is memory-only (not skill)",
+      g == (None, False, True))
+g = hook_gate("ok", 1.0, False, True, True, True, True, 1.0, 0.7,
+              adversarial=True)
+check("3b gate: perfect 1.0 is adversarial skill", g == (None, True, False))
+
+# ---- regression (reviewer 2): hook disabled in config must not make
+# ---- treatment rows eligible. learning_hook is a bool, so `is not None`
+# ---- would always be True; eligibility requires truthiness. ---------------
+from benchmark.benchmark_runner import BenchmarkRunner as BRRunner
+off_dir = Path(tempfile.mkdtemp(prefix="selftest_hookoff_"))
+cfg_off = load_config(ROOT / "config" / "config3b.yaml")
+cfg_off["learning_hook"]["enabled"] = False
+ro = BRRunner(cfg_off, off_dir, "ro", ["treatment"], 1,
+              resume=False, dry_run=False, round_no=1)
+check("3b reviewer2: disabled hook stays bool False", ro.learning_hook is False)
+check("3b reviewer2: disabled hook -> not eligible",
+      not (bool(ro.learning_hook) and "treatment" == ro.hook_arm
+           and not ro.dry_run))
+shutil.rmtree(off_dir)
+
+# ---- regression: pruner gets only the current task's log slice (fix #5). ----
+from benchmark.benchmark_runner import _slice_task_log
+slice_dir = Path(tempfile.mkdtemp(prefix="selftest_slice_"))
+log = slice_dir / "agent.log"
+t0 = datetime(2026, 8, 1, 10, 0, 0)
+log.write_text(
+    (t0 - timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+    + ',123 INFO previous task line\n'
+    + t0.strftime("%Y-%m-%d %H:%M:%S") + ',110 INFO current task line\n'
+    + (t0 + timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M:%S")
+    + ',111 INFO later line\n',
+    encoding="utf-8")
+sliced = _slice_task_log(log, t0, t0 + timedelta(minutes=1))
+check("prune slice: drops prior task lines", "previous" not in sliced
+      and "current task line" in sliced and "later line" in sliced)
+check("prune slice: ts window respected", sliced.count("INFO") == 2)
+shutil.rmtree(slice_dir)
 
 print()
 if failures:

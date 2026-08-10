@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -79,6 +80,80 @@ _STRING_COLUMNS = {
 
 
 # ---------------------------------------------------------------------------
+# Hook gate policy (case3 strict §4.2 / case3b tiered variant). Returns
+# (hook_status, adversarial, memory_only). hook_status None means the hook
+# should run; otherwise it is the "skipped(...)" label to record.
+# The caller invokes this ONLY for hook-eligible rows (treatment arm with the
+# learning hook enabled and not a dry run), so labels match the strict
+# case3 run: control rows keep hook_status = None.
+#   case3 strict: run on ok + score >= hook_min_score (default 1.0) + workdir
+#       diff + non-excluded tier, with the adversarial prompt.
+#   case3b tiered: score >= 1.0 -> adversarial skill prompt;
+#       hook_memory_min_score <= score < 1.0 -> memory-only hook;
+#       below -> skip. Workdir-diff / tier-exclusion checks apply in both.
+# ---------------------------------------------------------------------------
+def hook_gate(
+    status: str,
+    score,
+    tier_excluded: bool,
+    case3_enabled: bool,
+    require_workdir_diff: bool,
+    workdir_modified: bool,
+    hook_tiered: bool,
+    hook_min_score: float,
+    hook_memory_min_score: float,
+    adversarial: bool = True,
+) -> tuple[str | None, bool, bool]:
+    if tier_excluded:
+        return "skipped(tier=New)", False, False
+    if status != "ok" or score is None:
+        return "skipped(not-ok)", False, False
+    if case3_enabled and require_workdir_diff and not workdir_modified:
+        return "skipped(no-diff)", False, False
+    if hook_tiered:
+        if score >= hook_min_score:
+            return None, adversarial, False
+        if score >= hook_memory_min_score:
+            return None, False, True
+        return "skipped(score<1.0)", False, False
+    if score < hook_min_score:
+        return "skipped(score<1.0)", False, False
+    return None, adversarial, False
+
+
+# ---------------------------------------------------------------------------
+# Per-task agent-log slice (fix #5): agent.log is cumulative across tasks in
+# a round (and rounds), so handing the FULL file to the skill pruner would
+# delete skills viewed by EARLIER (possibly passing) tasks. Only lines with a
+# H:M:S timestamp within [start_dt, end_dt] are kept.
+# ---------------------------------------------------------------------------
+_LOG_LINE_TS_RE = re.compile(
+    r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+"
+)
+
+
+def _slice_task_log(log_path, start_dt, end_dt) -> str:
+    try:
+        lines = Path(log_path).read_text(
+            encoding="utf-8", errors="ignore"
+        ).splitlines()
+    except OSError:
+        return ""
+    keep = []
+    for line in lines:
+        m = _LOG_LINE_TS_RE.match(line)
+        if not m:
+            continue
+        try:
+            ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+        if start_dt <= ts <= end_dt:
+            keep.append(line)
+    return "\n".join(keep)
+
+
+# ---------------------------------------------------------------------------
 # Windows recovery routines (_remove_windows_reserved_files, restore_workspace,
 # kill_agent_orphans, etc.) live in benchmark.infrastructure_recovery and are
 # re-exported above for back-compat with the CLI and selftests.
@@ -123,6 +198,10 @@ class BenchmarkRunner:
         self.case3_enabled = bool(c3.get("enabled", True))
         self.require_workdir_diff = bool(c3.get("require_workdir_diff", True))
         self.hook_min_score = float(c3.get("hook_min_score", 1.0))
+        # Case-3B tiered persistence: skills only for perfect solutions, but
+        # 0.7-1.0 solutions may still save memory-only lessons.
+        self.hook_tiered = bool(c3.get("hook_tiered", False))
+        self.hook_memory_min_score = float(c3.get("hook_memory_min_score", 0.7))
         self.prune_failing_skills = bool(c3.get("prune_failing_skills", True))
 
         self.artifacts_dir = run_dir / "artifacts"
@@ -190,11 +269,9 @@ class BenchmarkRunner:
         # Rebuild the CURRENT round's map from its own CSV (fresh dataset
         # order wins for this round; other rounds keep their stored order).
         if round_no is not None:
-            cur = {t.task_id: i for i, t in enumerate(self.tasks)}
-            prev = self.round_order.get(round_no, {})
-            for i, t in enumerate(self.tasks):
-                prev.setdefault(t.task_id, i)
-            self.round_order[round_no] = {t.task_id: i for i, t in enumerate(self.tasks)}
+            self.round_order[round_no] = {
+                t.task_id: i for i, t in enumerate(self.tasks)
+            }
 
         # LM Studio judge client (used only by llm_judge tasks).
         ls = config["lmstudio"]
@@ -311,6 +388,11 @@ class BenchmarkRunner:
                             "after_state_db_bytes": None,
                             "workdir_modified": None,
                             "pruned_skill_files": None,
+                            "hook_status": None,
+                            "hook_duration_s": None,
+                            "hook_memory_files_delta": None,
+                            "hook_skill_files_delta": None,
+                            "hook_memory_bytes_delta": None,
                             "human_interventions": 1,
                             "completed_at": datetime.now().isoformat(
                                 timespec="seconds"
@@ -369,6 +451,11 @@ class BenchmarkRunner:
                             "after_state_db_bytes": None,
                             "workdir_modified": None,
                             "pruned_skill_files": None,
+                            "hook_status": None,
+                            "hook_duration_s": None,
+                            "hook_memory_files_delta": None,
+                            "hook_skill_files_delta": None,
+                            "hook_memory_bytes_delta": None,
                             "human_interventions": 1,
                             "completed_at": datetime.now().isoformat(
                                 timespec="seconds"
@@ -450,72 +537,53 @@ class BenchmarkRunner:
         # Post-task learning hook (treatment arm): explicitly trigger Hermes's
         # native memory/skill write path so the learning loop can actually
         # persist across rounds (one-shot mode never auto-fires it).
-        # New-tier tasks are excluded: the hook must not deliberately practice
-        # the specificity-control families (cli_tool/docker_configure) or New
-        # stops being a no-learning baseline.
         #
-        # Case-3 quality gates (spec §4.1/§4.2):
-        #   - the hook runs ONLY when the target files in work/ were
-        #     verifiably modified (verify_workdir_modified), otherwise
-        #     hook_status = "skipped(no-diff)";
-        #   - the hook runs ONLY for solutions scoring >= hook_min_score
-        #     (1.0 = perfect), otherwise "skipped(score<1.0)";
-        #   - when the gate passes the hook uses the ADVERSARIAL_HOOK_PROMPT
-        #     (quality filter) instead of the plain distilling prompt.
+        # Case-3 quality gates (spec §4.1/§4.2) and the tiered case-3b
+        # variant are evaluated by hook_gate() above:
+        #   strict: ok + score >= hook_min_score + workdir diff + non-excluded
+        #           tier -> adversarial skill hook, else "skipped(...)".
+        #   tiered: score >= 1.0   -> adversarial skill hook;
+        #           0.7 <= score < 1.0 -> memory-only hook;
+        #           below 0.7 -> skipped.
         hook_status = hook_duration = None
         hook_mem_delta = hook_skill_delta = hook_mem_bytes_delta = None
         tier_excluded = (
             self.hook_exclude_tiers and task.tier in self.hook_exclude_tiers
         )
         hook_eligible = (
-            self.learning_hook is not None
+            bool(self.learning_hook)
             and arm == self.hook_arm
             and not self.dry_run
-            and not tier_excluded
         )
         workdir_modified = (
             verify_workdir_modified(task.workdir, since=start_dt)
             if self.case3_enabled
             else True
         )
-        if hook_eligible and status != "ok":
-            # Only persist recalled lessons from tasks Hermes completed.
-            # Otherwise failures seed wrong lessons into memory and poison
-            # later rounds; the skip is still recorded so runs stay auditable.
-            hook_status = "skipped(not-ok)"
-            self.logger(
-                f"  [hook] skipped {task.task_id} (status={status}) - "
-                "not persisting lessons from a non-ok task"
+        hook_status, hook_adversarial, hook_memory_only = (None, True, False)
+        if hook_eligible:
+            hook_status, hook_adversarial, hook_memory_only = hook_gate(
+                status=status, score=score,
+                tier_excluded=tier_excluded,
+                case3_enabled=self.case3_enabled,
+                require_workdir_diff=self.require_workdir_diff,
+                workdir_modified=workdir_modified,
+                hook_tiered=self.hook_tiered,
+                hook_min_score=self.hook_min_score,
+                hook_memory_min_score=self.hook_memory_min_score,
+                adversarial=self.case3_enabled,
             )
-        elif self.learning_hook and arm == self.hook_arm and not self.dry_run \
-                and tier_excluded:
-            # Deliberate design: New = specificity control, the hook never
-            # runs there (same auditability as the not-ok skip).
-            hook_status = "skipped(tier=New)"
-        elif hook_eligible and self.case3_enabled \
-                and self.require_workdir_diff and not workdir_modified:
-            # Case-3 target-diff quality gate: the agent did not verifiably
-            # edit any file in work/ (it likely solved via a temp script or
-            # only responded in chat). No lesson to distill -> skip the hook.
-            hook_status = "skipped(no-diff)"
+        if hook_status and hook_status.startswith("skipped"):
             self.logger(
-                f"  [hook] skipped {task.task_id} (no target-diff in "
-                "work/) - refusing to persist an unverified solution"
+                f"  [hook] skipped {task.task_id} ({hook_status})"
             )
-        elif hook_eligible and self.case3_enabled \
-                and (score is None or score < self.hook_min_score):
-            # Quality gate: imperfect solutions must not write skills.
-            hook_status = "skipped(score<1.0)"
-            self.logger(
-                f"  [hook] skipped {task.task_id} (score={score} < "
-                f"{self.hook_min_score}) - only perfect solutions persist"
-            )
-        elif hook_eligible:
+        if hook_eligible and hook_status is None:
             hook_usage = self.usage_dir / f"r{round_no}_{arm}_{task.task_id}_hook.json"
             outcome = _outcome_summary(status, score, result.duration_s)
             hook = ifi.run_learning_hook(
                 task, outcome, hook_usage,
-                adversarial=self.case3_enabled,
+                adversarial=hook_adversarial,
+                memory_only=hook_memory_only,
             )
             hook_status = "ok" if hook.ok else "error"
             hook_duration = (
@@ -534,7 +602,26 @@ class BenchmarkRunner:
         pruned_skills = 0
         if self.case3_enabled and self.prune_failing_skills \
                 and not self.dry_run and score is not None and score < 1.0:
-            logs = [p for p in (ifi.log_file,) if p and p.exists()]
+            # Fix #5: agent.log accumulates ALL sessions of the round, so
+            # slice it to THIS task's window before pruning - otherwise a
+            # failing task could delete skills that earlier (passing) tasks
+            # legitimately viewed.
+            slice_path = None
+            if end_dt is not None:
+                slice_txt = ""
+                for p in (ifi.log_file,) if ifi.log_file else ():
+                    if p.exists():
+                        slice_txt = _slice_task_log(p, start_dt, end_dt)
+                        if slice_txt:
+                            slice_path = (
+                                self.usage_dir
+                                / f"r{round_no}_{arm}_{task.task_id}_session.log"
+                            )
+                            slice_path.write_text(slice_txt, encoding="utf-8")
+                        break
+            logs = [slice_path] if slice_path else (
+                [p for p in (ifi.log_file,) if p and p.exists()]
+            )
             usage_txt = usage_path if usage_path.exists() else None
             session_logs = list(logs) + (
                 [str(usage_path)] if usage_txt else []

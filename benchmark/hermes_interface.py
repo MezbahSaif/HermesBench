@@ -31,6 +31,22 @@ except Exception:  # pragma: no cover - non-Windows fallback
 
 _RECENT_WINDOW = timedelta(hours=1)
 
+_TOKEN_RE = re.compile(r"[a-z0-9_]{3,}")
+
+_STOPWORDS = {
+    "and", "the", "for", "with", "you", "your", "this", "that", "task",
+    "must", "should", "will", "are", "not", "from", "into", "using",
+    "write", "file", "files", "code", "python", "mod", "work", "prompt",
+    "expected", "following", "above", "below", "make", "sure", "then",
+    "when", "they", "have", "been", "will", "list", "need", "use", "cli",
+}
+
+
+def _keyword_tokens(text: str) -> set[str]:
+    """Case-insensitive keyword bag (fix #5 skill matching)."""
+    return {t for t in _TOKEN_RE.findall(text.lower()) if t not in _STOPWORDS}
+
+
 _LOG_LINE_RE = re.compile(
     r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+\s+\w+\s+[\w.]+:\s*(.*)$"
 )
@@ -87,6 +103,30 @@ ADVERSARIAL_HOOK_PROMPT = (
     "If no generalizable lesson exists, reply strictly with: "
     '"NO_SKILL_PERSISTED: Solution was task-specific or required no '
     'permanent skill."\n\n'
+    "After deciding, reply with EXACTLY the single word DONE and nothing else."
+)
+
+
+# Case-3b memory-only reflection prompt: used when quality-gated tiering
+# admits a good-but-not-perfect solution (0.7 <= score < 1.0). Lessons are
+# persisted as memory entries ONLY - never as skills.
+MEMORY_ONLY_HOOK_PROMPT = (
+    "You are performing a post-task reflection on a task you just completed.\n"
+    "Your goal is to decide whether to save a MEMORY for FUTURE sessions.\n\n"
+    "TASK_ID: {task_id}\n"
+    "OUTCOME: {outcome}\n\n"
+    "TASK PROMPT:\n{prompt}\n\n"
+    "QUALITY FILTER:\n"
+    "1. Did you solve this task by editing the target source files in\n"
+    "   `work/`?\n"
+    "2. Even though the solution was not perfect, is there a concise, durable\n"
+    "   warning rule, edge case, or negative lesson worth remembering?\n"
+    "3. Hardcoded hacks or task-specific fixes: DISCARD. DO NOT WRITE A SKILL.\n\n"
+    "If a durable memory exists:\n"
+    '  - Use `memory(action="add", target="memory", content="...")` ONLY.\n'
+    "  - NEVER create or modify any skill file - this tier is memory-only.\n\n"
+    "If nothing durable exists, reply strictly with:\n"
+    '"NO_MEMORY_PERSISTED: no durable lesson qualifies."\n\n'
     "After deciding, reply with EXACTLY the single word DONE and nothing else."
 )
 
@@ -381,6 +421,7 @@ class LearningState:
 
 class HermesInterface:
     def __init__(self, config: dict, home_dir: Path, workdir_root: Path):
+        self.config = config
         self.exe = Path(config["hermes"]["executable"])
         self.real_home = Path(config["hermes"]["real_home"])
         self.model = config["hermes"].get("model") or ""
@@ -391,7 +432,8 @@ class HermesInterface:
         self.workdir_root = workdir_root
         self.log_metrics_cfg = config.get("log_metrics", {})
         self.seed_skills = bool(config["hermes"].get("seed_skills", True))
-        self.learning_hook = bool(config["benchmark"].get("learning_hook", True))
+        self.learning_hook = bool(config.get("learning_hook", {}).get(
+            "enabled", True))
         case3 = config.get("case3", {})
         self.contract_skill = (
             Path(case3["seed_contract_skill"])
@@ -399,6 +441,10 @@ class HermesInterface:
             else None
         )
         self.adversarial_hook = bool(case3.get("adversarial_hook", False))
+        # Case-3b hook hardening: the post-task reflection session is capped
+        # at hook_timeout_s (default 120s) so a runaway hook can never stall
+        # a round or burn tokens for 900s like the task invocation.
+        self.hook_timeout_s = float(case3.get("hook_timeout_s", 120))
         self.log_file = None
 
     # ------------------------------------------------------------------ setup
@@ -480,7 +526,52 @@ class HermesInterface:
         """Execute one task via `hermes -z` and return everything we know."""
         if not task.prompt.strip():
             raise ValueError(f"task {task.task_id}: empty prompt")
-        return self._invocation(task.prompt, task.workdir, usage_path)
+        prompt = task.prompt
+        # Case-3b fix #5: active skill injection. Match task keywords against
+        # the local home skill index and pre-load the top-k hits into the
+        # prompt so the model does not have to discover them mid-run.
+        injected = self._skill_injection_context(task)
+        if injected:
+            prompt = injected + "\n\n" + prompt
+        return self._invocation(prompt, task.workdir, usage_path)
+
+    def _skill_injection_context(self, task,
+                                 top_k: int | None = None) -> str:
+        """Fuse task keywords with the local skill library (fix #5).
+
+        Returns a 'consult these skills' preamble, or '' when disabled or
+        nothing matches. Reads SKILL.md files under HERMES_HOME/skills/ and
+        scores them by keyword overlap with the task prompt.
+        """
+        inject_cfg = self.config.get("case3", {}).get("inject_skills", {})
+        if not inject_cfg or not inject_cfg.get("enabled", False):
+            return ""
+        top_k = top_k or int(inject_cfg.get("top_k", 3))
+        max_chars = int(inject_cfg.get("max_chars_per_skill", 600))
+        skills_root = self.home_dir / "skills"
+        if not skills_root.is_dir():
+            return ""
+        task_words = _keyword_tokens(task.prompt)
+        if not task_words:
+            return ""
+        hits: list[tuple[int, Path, str]] = []
+        for md in skills_root.rglob("SKILL.md"):
+            try:
+                text = md.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            score_ = len(task_words & _keyword_tokens(text[:4000]))
+            if score_ > 0:
+                hits.append((score_, md, md.parent.name))
+        if not hits:
+            return ""
+        hits.sort(key=lambda h: (-h[0], h[2]))
+        parts = ["RELEVANT SKILLS (consult these before answering):"]
+        for _, md, name in hits[:top_k]:
+            head = md.read_text(encoding="utf-8",
+                                errors="ignore")[:max_chars].strip()
+            parts.append(f"\n--- skill: {name} ---\n{head}")
+        return "\n".join(parts)
 
     def run_learning_hook(
         self,
@@ -488,6 +579,7 @@ class HermesInterface:
         outcome_summary: str,
         usage_path: Path | None = None,
         adversarial: bool | None = None,
+        memory_only: bool = False,
     ) -> LearningHook:
         """Trigger Hermes's NATIVE memory write path (one-shot mode never
         auto-fires it): run a short `-z` session whose prompt directs the
@@ -498,10 +590,20 @@ class HermesInterface:
 
         Case 3: when `adversarial` (default: config) is enabled, the prompt
         is the quality-filtered ADVERSARIAL_HOOK_PROMPT (spec §4.2) instead
-        of the plain distilling prompt."""
+        of the plain distilling prompt.
+
+        Case 3b: `memory_only` selects the MEMORY_ONLY_HOOK_PROMPT, which
+        forbids skill writes (tier for 0.7 <= score < 1.0). The hook session
+        is hard-capped at hook_timeout_s (default 120s), with a result
+        fallback preserving the error when the cap is hit (fix #1)."""
         if adversarial is None:
             adversarial = self.adversarial_hook
-        prompt_tpl = ADVERSARIAL_HOOK_PROMPT if adversarial else _HOOK_PROMPT
+        if memory_only:
+            prompt_tpl = MEMORY_ONLY_HOOK_PROMPT
+        elif adversarial:
+            prompt_tpl = ADVERSARIAL_HOOK_PROMPT
+        else:
+            prompt_tpl = _HOOK_PROMPT
         prompt = prompt_tpl.format(
             task_id=task.task_id,
             outcome=outcome_summary,
@@ -512,7 +614,26 @@ class HermesInterface:
             try:
                 if usage_path is None:
                     raise ValueError("learning hook requires a usage path")
-                result = self._invocation(prompt, task.workdir, usage_path)
+                result = self._invocation(
+                    prompt, task.workdir, usage_path,
+                    timeout_s=self.hook_timeout_s,
+                )
+            except subprocess.TimeoutExpired as exc:
+                # Fix #1 (defensive): _invocation() normally converts the
+                # timeout into HermesRunResult(timed_out=True), so this
+                # branch only fires if the subprocess layer raises directly.
+                print(f"[hermes] HOOK TIMEOUT for {task.task_id}"
+                      f" (>{self.hook_timeout_s}s)")
+                return LearningHook(
+                    task_id=task.task_id,
+                    ok=False,
+                    outcome=outcome_summary,
+                    error=(f"hook timeout > {self.hook_timeout_s}s"
+                           f": {getattr(exc, 'stdout', b'')[:200]!r}"),
+                    before=before,
+                    after=None,
+                    result=None,
+                )
             except Exception as exc:  # defensive: never fail the round
                 print(f"[hermes] HOOK FAILED for {task.task_id}: {exc!r}")
                 return LearningHook(
@@ -523,6 +644,22 @@ class HermesInterface:
                     before=before,
                     after=None,
                     result=None,
+                )
+            if result.timed_out:
+                # The hook hit its 120s cap: _invocation swallowed
+                # TimeoutExpired and returned a timed_out result. Record it
+                # as a non-fatal error with a real message (not empty ""),
+                # so hook_status = "error" rows are auditable.
+                print(f"[hermes] HOOK TIMEOUT for {task.task_id}"
+                      f" (>{self.hook_timeout_s}s)")
+                return LearningHook(
+                    task_id=task.task_id,
+                    ok=False,
+                    outcome=outcome_summary,
+                    error=f"hook timeout > {self.hook_timeout_s}s",
+                    before=before,
+                    after=None,
+                    result=result,
                 )
         else:
             result = None
@@ -538,9 +675,13 @@ class HermesInterface:
         )
 
     def _invocation(
-        self, prompt: str, workdir: Path, usage_path: Path | None
+        self, prompt: str, workdir: Path, usage_path: Path | None,
+        timeout_s: float | None = None,
     ) -> HermesRunResult:
-        """Shared headless `hermes -z` subprocess driver."""
+        """Shared headless `hermes -z` subprocess driver.
+
+        ``timeout_s`` overrides the configured task timeout for special
+        invocations (post-task hook, fix #1); None = task timeout."""
         if len(prompt) > 30000:
             raise ValueError(
                 f"prompt too long for the command line "
@@ -569,7 +710,10 @@ class HermesInterface:
         timed_out = crashed = False
         kwargs = dict(cwd=str(workdir), env=env, capture_output=True,
                       text=True, encoding="utf-8", errors="replace",
-                      timeout=self.timeout_s)
+                      timeout=(
+                          timeout_s if timeout_s is not None
+                          else self.timeout_s
+                      ))
         if os.name == "nt":
             kwargs["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
         start_ts = datetime.now()

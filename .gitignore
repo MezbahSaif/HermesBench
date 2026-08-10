@@ -69,3 +69,10 @@ Thumbs.db
 desktop.ini
 *.swp
 *~
+# Windows reserved device names (agents sometimes create these)
+**/nul
+**/con
+**/aux
+**/com1
+**/lpt1
+
