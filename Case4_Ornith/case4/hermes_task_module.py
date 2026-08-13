@@ -81,7 +81,7 @@ class HermesTaskModule(dspy.Module):
             prompt_text = "Implement a solution for the given coding task."
 
         # Format the optimizer‑mutated prompt with {task_id} and {prompt}
-        rendered_prompt = self.predict.task_prompt.format(task_id=task_id, prompt=prompt_text)
+        rendered_prompt = self.task_prompt.format(task_id=task_id, prompt=prompt_text)
 
         # 4. Invoke hermes.exe using HermesInterface
         #    Build the config dict – wire student_lm/reflection_lm if given.

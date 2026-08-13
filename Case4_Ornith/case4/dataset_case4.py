@@ -1,14 +1,15 @@
 # dataset_case4.py
 # Builds and freezes the train/val/test split for Case 4.
-# Uses the same 34‑task pool as build_case3_dataset.py (repo root).
+# Uses the same 34-task pool as build_case3_dataset.py (repo root).
 # Random seed 4 (config) ensures reproducible split on both PCs.
 # Outputs (relative to the HermesBench repo root):
 #   datasets/case4_train.csv, case4_val.csv, case4_test.csv
-#   datasets/SPLIT_MANIFEST.md with SHA‑256 hashes of the CSVs.
+#   datasets/SPLIT_MANIFEST.md with SHA-256 hashes of the CSVs.
 # 
 # The script asserts that every task ID in the three CSVs exists in the real
-# 34‑task pool, so fabricated names (e.g. "refactor_logs") can never appear.
-
+# 34-task pool, so fabricated names (e.g. "refactor_logs") can never appear.
+# It also asserts cross-split disjointness (plan §4).
+# 
 import hashlib, json, pathlib, random, sys
 from pathlib import Path
 
@@ -48,9 +49,17 @@ for name, ids in [("train", train_ids), ("val", val_ids), ("test", test_ids)]:
     for tid in ids:
         if tid not in REAL_TASK_IDS:
             raise ValueError(
-                f"Task ID '{tid}' in {name} split does not exist in the real 34‑task pool. "
+                f"Task ID '{tid}' in {name} split does not exist in the real 34-task pool. "
                 "Regenerate the split with the real repo checked out."
             )
+
+# ---- Cross-split disjointness assertions (plan §4) ----
+train_set = set(train_ids)
+val_set    = set(val_ids)
+test_set   = set(test_ids)
+assert not (train_set & val_set), f"train/val overlap: {train_set & val_set}"
+assert not (train_set & test_set), f"train/test overlap: {train_set & test_set}"
+assert not (val_set & test_set), f"val/test overlap: {val_set & test_set}"
 
 SPLIT = {
     "train": train_ids,
@@ -81,3 +90,4 @@ with open(manifest_path, "w") as f:
         f.write(f"- **{name}**: `{h}`\n")
 
 print("Case 4 split generated and verified against real pool.")
+PYEOF
