@@ -1,5 +1,6 @@
 # hermes_task_module.py
 import sys
+import traceback
 from pathlib import Path
 import dspy
 
@@ -14,7 +15,8 @@ _repo_root = get_repo_root()
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
-from benchmark.hermes_interface import HermesInterface, restore_workspace
+from benchmark.hermes_interface import HermesInterface
+from benchmark.infrastructure_recovery import restore_workspace
 from benchmark.graders import grade
 from benchmark.task_loader import Task
 
@@ -56,9 +58,20 @@ class HermesTaskModule(dspy.Module):
                 task.threshold = 0.7
         except TypeError:
             task = Task(task_id, category="", prompt="", check_type="", expected="", threshold=0.7, rubric="", workdir=workdir_path)
+        except Exception as exc:
+            print(f"[HERMES] Task creation failed for {task_id}: {exc}")
+            traceback.print_exc()
+            return dspy.Prediction(score=None, score_detail=f"task-creation-error: {exc}", diff="N/A")
 
-        restored = restore_workspace(task)
+        try:
+            restored = restore_workspace(task)
+        except Exception as exc:
+            print(f"[HERMES] restore_workspace failed for {task_id}: {exc}")
+            traceback.print_exc()
+            return dspy.Prediction(score=None, score_detail=f"restore-error: {exc}", diff="N/A")
+
         if not restored:
+            print(f"[HERMES] restore_workspace returned False for {task_id}")
             return dspy.Prediction(score=None, score_detail="restore-failed", diff="N/A")
 
         prompt_text = ""
@@ -75,29 +88,44 @@ class HermesTaskModule(dspy.Module):
         if not prompt_text.strip():
             prompt_text = "Implement a solution for the given coding task."
 
+        # Call self.predict FIRST so GEPA can intercept and track the prediction
+        pred = self.predict(task_id=task_id, problem_text=prompt_text)
+
+        # Now read the (possibly GEPA-mutated) instructions
         rendered_prompt = self.task_prompt.replace("{task_id}", task_id).replace("{prompt}", prompt_text)
 
         model_str = self.student_lm.model if self.student_lm is not None else ""
 
-        iface = HermesInterface(
-            {"hermes": {"executable": str(self.hermes_exe),
-                        "real_home": str(self.hermes_home),
-                        "model": model_str,
-                        "provider": "",
-                        "extra_args": []},
-             "benchmark": {"pass_threshold": 0.7}},
-            self.hermes_home,
-            self.hermes_home / task_id
-        )
-
         try:
-            result = iface.run_task(rendered_prompt)
+            iface = HermesInterface(
+                {"hermes": {"executable": str(self.hermes_exe),
+                            "real_home": str(self.hermes_home),
+                            "model": model_str,
+                            "provider": "",
+                            "extra_args": []},
+                 "benchmark": {"pass_threshold": 0.7}},
+            self.hermes_home,
+            self.hermes_home / task_id / "work"
+            )
         except Exception as exc:
+            print(f"[HERMES] HermesInterface creation failed for {task_id}: {exc}")
+            traceback.print_exc()
+            return dspy.Prediction(score=None, score_detail=f"iface-creation-error: {exc}", diff="N/A")
+
+        task.prompt = rendered_prompt
+        usage_path = self.hermes_home / task_id / "usage.json"
+        usage_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            result = iface.run_task(task, usage_path)
+        except Exception as exc:
+            print(f"[HERMES] iface.run_task failed for {task_id}: {exc}")
+            traceback.print_exc()
             return dspy.Prediction(score=None, score_detail=f"hermes-execution-error: {exc}", diff="N/A")
 
         try:
             score, detail = grade(task, result.response, judge=None)
         except Exception as exc:
+            print(f"[HERMES] grade() failed for {task_id}: {exc}")
             score, detail = None, f"grader-error:{type(exc).__name__}"
 
         passed = bool(score is not None and score >= task.threshold) if score is not None else False
@@ -109,5 +137,6 @@ class HermesTaskModule(dspy.Module):
         )
 
 
-def hermes_metric(gold, pred, trace=None):
-    return {"score": pred.score, "feedback": pred.score_detail}
+def hermes_metric(gold, pred, trace=None, pred_name=None, pred_trace=None):
+    score = pred.score if pred.score is not None else 0.0
+    return float(score)

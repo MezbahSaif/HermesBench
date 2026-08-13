@@ -49,10 +49,3 @@ def apply_bulk_discount(subtotal: float, min_amount: float = 500.0,
 
 def compute_tax(amount: float, tax_rate: float = 0.075) -> float:
     return round(amount * tax_rate, 2)
-
-
-def compute_total(items: list[LineItem], tax_rate: float = 0.075) -> float:
-    """Compute the final invoice total from line items."""
-    subtotal = compute_subtotal(items)
-    discounted = apply_bulk_discount(subtotal)
-    return round(discounted + compute_tax(discounted, tax_rate), 2)

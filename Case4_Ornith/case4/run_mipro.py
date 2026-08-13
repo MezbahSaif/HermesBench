@@ -15,6 +15,9 @@ def get_repo_root():
 repo_root = get_repo_root()
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
+case4_dir = repo_root / "Case4_Ornith"
+if str(case4_dir) not in sys.path:
+    sys.path.insert(0, str(case4_dir))
 
 from case4.hermes_task_module import HermesTaskModule, hermes_metric
 
@@ -25,7 +28,7 @@ def load_examples_from_csv(csv_path):
         for line in f:
             tid = line.strip()
             if not tid: continue
-            pristine = str(repo_root / "datasets" / "variants" / "tasks" / tid)
+            pristine = str(repo_root / "datasets" / "variants" / "tasks" / tid / "work")
             example = dspy.Example(task_id=tid, pristine_files=pristine).with_inputs('task_id', 'pristine_files')
             examples.append(example)
     return examples

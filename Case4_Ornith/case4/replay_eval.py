@@ -18,6 +18,7 @@ if str(repo_root) not in sys.path:
 
 from benchmark.graders import grade
 from benchmark.hermes_interface import HermesInterface
+from benchmark.infrastructure_recovery import restore_workspace
 from benchmark.task_loader import Task
 
 
@@ -38,7 +39,7 @@ def examples_from_csv(csv_path):
         for line in f:
             tid = line.strip()
             if tid:
-                workdir = repo_root / "datasets" / "variants" / "tasks" / tid
+                workdir = repo_root / "datasets" / "variants" / "tasks" / tid / "work"
                 try:
                     task = Task(tid)
                     if hasattr(task, 'threshold'):
@@ -54,7 +55,7 @@ def run_prompt_on_testset(prompt_template, tasks, hermes_interface):
     results = []
     for task in tasks:
         try:
-            restored = hermes_interface.restore_workspace(task)
+            restored = restore_workspace(task)
         except Exception as exc:
             restored = False
 
@@ -62,7 +63,7 @@ def run_prompt_on_testset(prompt_template, tasks, hermes_interface):
             results.append({"task_id": task.task_id, "score": None, "passed": False, "score_detail": "restore-failed"})
             continue
 
-        workdir = repo_root / "datasets" / "variants" / "tasks" / task.task_id
+        workdir = repo_root / "datasets" / "variants" / "tasks" / task.task_id / "work"
         prompt_text = ""
         for possible in ["problem.json", "task.json", "prompt.json",
                          "problem.txt", "task.txt", "prompt.txt",

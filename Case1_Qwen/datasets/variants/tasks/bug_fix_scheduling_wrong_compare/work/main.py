@@ -23,8 +23,7 @@ def merge_shifts(shifts: list[Shift]) -> list[Shift]:
     for s in ordered[1:]:
         last = merged[-1]
         if s.start <= last.end:
-            # Create a new shift with updated end instead of mutating input
-            merged[-1] = Shift(worker=last.worker, start=last.start, end=max(last.end, s.end))
+            last.end = max(last.end, s.end)
         else:
             merged.append(s)
     return merged

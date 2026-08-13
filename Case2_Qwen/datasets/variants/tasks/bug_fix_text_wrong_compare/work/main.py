@@ -13,13 +13,13 @@ def slugify(text: str) -> str:
 def word_frequency(text: str, min_len: int = 3) -> dict[str, int]:
     counts: dict[str, int] = {}
     for token in text.split():
-        word = token.strip(".,!?;:\"'").lower()
-        if len(word) >= min_len:
+        word = token.strip(".,!?;:()\"'").lower()
+        if len(word) > min_len:
             counts[word] = counts.get(word, 0) + 1
     return counts
 
 
 def sentence_split(text: str) -> list[str]:
     """Naive splitter: '.', '!', '?' followed by whitespace/end."""
-    pieces = re.split(r"(?<=[.!?])\s+", text.strip().lower())
+    pieces = re.split(r"(?<=[.!?])\s+", text.strip())
     return [p for p in pieces if p]
