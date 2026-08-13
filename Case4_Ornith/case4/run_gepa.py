@@ -55,7 +55,7 @@ def main():
     val_csv = dataset_cfg.get("val_csv")
     valset = load_examples_from_csv(val_csv) if Path(val_csv).exists() else []
 
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parent.parent.parent
     hermes_exe = repo_root / "hermes.exe" if (repo_root / "hermes.exe").exists() else Path(os.path.expandvars("${LOCALAPPDATA}/hermes/hermes-agent/venv/Scripts/hermes.exe"))
     
     module = HermesTaskModule(
@@ -75,7 +75,7 @@ def main():
         
         best_prompt = optimized_program.task_prompt
         with open(f"{args.run_id}_best_prompt.txt", "w") as f:
-            f.write(best_prompt)
+            f.write(str(best_prompt))
         print(f"GEPA finished. Best prompt saved to {args.run_id}_best_prompt.txt")
     except Exception as e:
         import traceback

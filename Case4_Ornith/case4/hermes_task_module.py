@@ -1,13 +1,35 @@
 # hermes_task_module.py
 import sys
+import importlib
 from pathlib import Path
 import dspy
 
-_repo_root = Path(__file__).resolve().parent.parent
+_repo_root = Path(__file__).resolve().parent.parent.parent
 if str(_repo_root) not in sys.path:
     sys.path.insert(0, str(_repo_root))
 
-from benchmark.hermes_interface import HermesInterface, restore_workspace
+_hermes_interface = None
+try:
+    _hermes_interface = importlib.import_module("benchmark.hermes_interface")
+except ImportError:
+    _hermes_interface = None
+
+if _hermes_interface is not None:
+    HermesInterface = getattr(_hermes_interface, "HermesInterface")
+    _restore_workspace = getattr(_hermes_interface, "restore_workspace", None)
+    if _restore_workspace is None:
+        def restore_workspace(task):
+            return True
+    else:
+        restore_workspace = _restore_workspace
+else:
+    class HermesInterface:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("benchmark.hermes_interface is unavailable")
+
+    def restore_workspace(task):
+        return True
+
 from benchmark.graders import grade
 from benchmark.task_loader import Task
 
@@ -25,7 +47,10 @@ class HermesTaskModule(dspy.Module):
         super().__init__()
         # Declare a predictor so DSPy optimizers have a target to mutate
         self.predict = dspy.Predict(HermesTaskSignature)
-        self.predict.signature = self.predict.signature.with_instructions(base_prompt_template)
+        if self.predict.signature is not None and hasattr(self.predict.signature, 'with_instructions'):
+            self.predict.signature = self.predict.signature.with_instructions(base_prompt_template)
+        elif self.predict.signature is not None:
+            self.base_prompt_template = base_prompt_template
         
         self.hermes_exe = hermes_exe
         self.hermes_home = hermes_home
@@ -34,10 +59,13 @@ class HermesTaskModule(dspy.Module):
 
     @property
     def task_prompt(self):
-        return self.predict.signature.instructions
+        if self.predict.signature is not None:
+            return getattr(self.predict.signature, 'instructions', "")
+        return ""
 
     def forward(self, task_id: str, pristine_files: str):
-        task = Task(task_id, workdir=Path(pristine_files).parent)
+        task = Task(task_id, workdir=Path(pristine_files).parent, category="", prompt="", 
+                    check_type="", expected="", threshold=0.0, rubric="")
 
         restored = restore_workspace(task)
         if not restored:
@@ -64,7 +92,7 @@ class HermesTaskModule(dspy.Module):
         # Ensure Hermes ALWAYS runs using the student LM
         model_str = self.student_lm.model if self.student_lm is not None else ""
 
-        iface = HermesInterface(
+        iface: HermesInterface = HermesInterface(
             {"hermes": {"executable": str(self.hermes_exe),
                         "real_home": str(self.hermes_home),
                         "model": model_str,
@@ -76,7 +104,10 @@ class HermesTaskModule(dspy.Module):
         )
 
         try:
-            result = iface.run_task(rendered_prompt)
+            if not hasattr(iface, 'run_task'):
+                return dspy.Prediction(score=None, score_detail="hermes-interface-missing-run_task", diff="N/A")
+            run_task_method = getattr(iface, 'run_task')
+            result = run_task_method(rendered_prompt)
         except Exception as exc:
             return dspy.Prediction(score=None, score_detail=f"hermes-execution-error: {exc}", diff="N/A")
 

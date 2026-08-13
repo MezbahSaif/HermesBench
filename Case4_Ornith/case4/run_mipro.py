@@ -46,7 +46,7 @@ def main():
     val_csv = dataset_cfg.get("val_csv")
     valset = load_examples_from_csv(val_csv) if Path(val_csv).exists() else []
 
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parent.parent.parent
     hermes_exe = repo_root / "hermes.exe" if (repo_root / "hermes.exe").exists() else Path(os.path.expandvars("${LOCALAPPDATA}/hermes/hermes-agent/venv/Scripts/hermes.exe"))
     
     module = HermesTaskModule(
@@ -61,8 +61,7 @@ def main():
         mipro_optim = dspy.MIPROv2(
             metric=hermes_metric,
             auto=mipro_cfg.get("auto", "light"),
-            num_candidates=mipro_cfg.get("num_candidates", 6),
-            max_metric_calls=mipro_cfg.get("max_metric_calls", 150)
+            num_candidates=mipro_cfg.get("num_candidates", 6)
         )
         optimized_program = mipro_optim.compile(student=module, trainset=trainset, valset=valset)
         

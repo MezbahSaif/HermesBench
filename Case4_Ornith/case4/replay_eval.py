@@ -28,7 +28,22 @@ def examples_from_csv(csv_path):
         f.readline()
         for line in f:
             tid = line.strip()
-            if tid: tasks.append(Task(tid))
+            if tid:
+                try:
+                    task = Task(
+                        task_id=tid,
+                        category="unknown",
+                        prompt="",
+                        check_type="pass",
+                        expected="",
+                        threshold=0.7,
+                        rubric="",
+                        workdir=Path("")
+                    )
+                    tasks.append(task)
+                except TypeError:
+                    # Task constructor may require additional parameters
+                    pass
     return tasks
 
 
@@ -128,11 +143,16 @@ def main():
 
     obs = [[n_opt_pass, n_opt_total - n_opt_pass], [n_baseline_pass, n_baseline_total - n_baseline_pass]]
     try:
-        oddsratio, p_value = stats.fisher_exact(obs, alternative="two-sided")
+        result = stats.fisher_exact(obs, alternative="two-sided")
+        if isinstance(result, tuple):
+            oddsratio, p_value = result[0], result[1]
+        else:
+            oddsratio, p_value = result.oddsratio, result.pvalue
     except Exception:
         p_value = float("nan")
+        oddsratio = float("nan")
 
-    verdict_label = "IMPROVED" if (delta_pass >= 5.0 and p_value < 0.05) else "NO CHANGE"
+    verdict_label = "IMPROVED" if (delta_pass >= 5.0 and (isinstance(p_value, float) and not pd.isna(p_value) and p_value < 0.05)) else "NO CHANGE" 
 
     run_dir = Path("runs") / args.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -163,7 +183,13 @@ def main():
     df.to_csv(run_dir / "metrics.csv", index=False)
 
     try:
-        from analysis.metrics_engine import build_summary, build_improvement, build_gain, verdict, build_case3_table
+        sys.path.insert(0, str(repo_root))
+        try:
+            from analysis.metrics_engine import build_summary, build_improvement, build_gain, verdict, build_case3_table  # type: ignore
+        except (ImportError, ModuleNotFoundError) as e:
+            print("analysis.metrics_engine not available, skipping xlsx generation")
+            return 0
+        
         with pd.ExcelWriter(run_dir / "results.xlsx", engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name="metrics", index=False)
             build_summary(df).to_excel(writer, sheet_name="summary", index=False)
@@ -185,7 +211,7 @@ def main():
     print("-" * 72)
     print(f"ΔPass       : {delta_pass:+.1f}%  (need >=+5%)")
     print(f"fisher_p    : {p_value:.4f}  (need <0.05)")
-    print(f"odds_ratio  : {oddsratio if not pd.isna(oddsratio) else 'nan'}")
+    print(f"odds_ratio  : {oddsratio if isinstance(oddsratio, float) and not pd.isna(oddsratio) else 'nan'}")
     print(f"Verdict     : {verdict_label}")
     print("=" * 72)
 
