@@ -50,6 +50,7 @@ def main():
         model=f"openai/{student_cfg.get('model_name', 'ornith-1.0-9b')}",
         api_base=student_cfg.get("base_url", "http://127.0.0.1:1234/v1"),
         api_key=student_cfg.get("api_key", "sk-lm-studio"),
+        option={"response_format": {"type": "text"}},
     )
 
     dspy.configure(lm=student_lm)

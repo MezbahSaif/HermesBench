@@ -82,8 +82,9 @@ def run_prompt_on_testset(prompt_template, tasks, hermes_interface):
 
         usage_path = repo_root / "datasets" / "variants" / "usage" / f"{task.task_id}.json"
         usage_path.parent.mkdir(parents=True, exist_ok=True)
+        task.prompt = rendered_prompt
         try:
-            result = hermes_interface.run_task(rendered_prompt, usage_path)
+            result = hermes_interface.run_task(task, usage_path)
         except Exception as exc:
             results.append({"task_id": task.task_id, "score": None, "passed": False, "score_detail": "hermes-error"})
             continue
