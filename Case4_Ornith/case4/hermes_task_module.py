@@ -1,9 +1,9 @@
 # hermes_task_module.py
 # DSPy / Hermes bridge for Case 4.
 # - Uses dspy.Predict so GEPA/MIPROv2 can mutate the task prompt
-# - Calls the real HermesInterface/restore/grade functions
-# - The only mutable field the optimizers touch is ``self.task_prompt``
-#   inside the Predict signature.
+# - Calls the real HermesInterface, restore_workspace, and grade functions
+# - The only mutable field the optimizers touch is ``self.predict.task_prompt``
+# - All Hermes operations use the real functions from the HermesBench repo
 
 import sys
 from pathlib import Path
@@ -35,7 +35,8 @@ class HermesTaskModule(dspy.Module):
         # Build a dspy.Predict whose single configurable field is the prompt.
         # GEPA/MIPRO will rewrite .signature.instructions (the task_prompt).
         self.predict = dspy.Predict(HermesTaskSignature)
-        self.task_prompt = base_prompt_template  # initial value; optimizers will mutate it
+        # Initialize the prompt to the base template; optimizers will mutate it.
+        self.predict.task_prompt = base_prompt_template
         self.hermes_exe = hermes_exe
         self.hermes_home = hermes_home
         self.student_lm = student_lm
@@ -47,7 +48,7 @@ class HermesTaskModule(dspy.Module):
         1. Build a Task object from the task_id.
         2. Restore pristine → work (real restore_workspace).
         3. Render the current task_prompt (the optimizer‑mutated string)
-           against the task’s own problem file, then pass it to Hermes.
+           against the task's own problem file, then pass it to Hermes.
         4. Invoke hermes.exe via HermesInterface (real subprocess driver).
         5. Grade the response via the real grader.
         6. Return dspy.Prediction(score=..., score_detail=..., diff=...)
@@ -55,7 +56,7 @@ class HermesTaskModule(dspy.Module):
         # 1. Build a Task object from the task_id
         task = Task(task_id, workdir=Path(pristine_files).parent)
 
-        # 2. Restore pristine -> work (real function from HermesBench)
+        # 2. Restore pristine → work (real function from HermesBench)
         restored = restore_workspace(task)
         if not restored:
             return dspy.Prediction(
@@ -64,7 +65,9 @@ class HermesTaskModule(dspy.Module):
                 diff="N/A"
             )
 
-        # 3. Render the prompt from the work directory’s problem file.
+        # 3. Render the prompt from the work directory's problem file.
+        #    GEPA/MIPRO will have mutated self.predict.task_prompt;
+        #    we format it with the task-specific {task_id} and {prompt} values.
         workdir = Path(pristine_files).parent
         prompt_text = ""
         for possible in ["problem.json", "task.json", "prompt.json",
@@ -81,7 +84,7 @@ class HermesTaskModule(dspy.Module):
             prompt_text = "Implement a solution for the given coding task."
 
         # Format the optimizer‑mutated prompt with {task_id} and {prompt}
-        rendered_prompt = self.task_prompt.format(task_id=task_id, prompt=prompt_text)
+        rendered_prompt = self.predict.task_prompt.format(task_id=task_id, prompt=prompt_text)
 
         # 4. Invoke hermes.exe using HermesInterface
         #    Build the config dict – wire student_lm/reflection_lm if given.
@@ -90,14 +93,14 @@ class HermesTaskModule(dspy.Module):
         if self.student_lm is not None:
             model_str = self.student_lm.model or ""
         if self.reflection_lm is not None:
-            # Use reflection_lm for GEPA; fall back to student_lm
+            # Use reflection_lm for GEPA's reflective updates; fall back to student_lm
             model_str = (self.reflection_lm.model or self.student_lm.model or "") if self.student_lm else ""
 
         iface = HermesInterface(
             {"hermes": {"executable": str(self.hermes_exe),
                         "real_home": str(self.hermes_home),
                         "model": model_str,
-                        "provider": provider_str,
+                        "provider": "",
                         "extra_args": []},
              "benchmark": {"pass_threshold": 0.7}},
             self.hermes_home,
