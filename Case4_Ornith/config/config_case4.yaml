@@ -1,0 +1,27 @@
+case4:
+  random_seed: 4
+  student_model:
+    provider: lmstudio
+    base_url: "http://127.0.0.1:1234/v1"
+    model_name: "ornith-1.0-9b"             # exact served-model-name from LM Studio
+  reflection_model:                          # GEPA branch only
+    provider: lmstudio
+    base_url: "http://127.0.0.1:1234/v1"
+    model_name: "ornith-1.0-9b"              # or a stronger local model if PC has capacity
+  dataset:
+    train_csv: "datasets/case4_train.csv"
+    val_csv: "datasets/case4_val.csv"
+    test_csv: "datasets/case4_test.csv"
+  gepa:
+    auto: "light"
+    max_metric_calls: 100
+  mipro:
+    auto: "light"
+    max_metric_calls: 150
+    num_candidates: 6
+  base_prompt_template: |
+    You are Hermes. Solve the following coding task:
+    Task ID: {task_id}
+    Instruction: {prompt}
+  delta_pass_threshold: 0.05       # same +5% bar as Case 3, for comparability
+  alpha: 0.05

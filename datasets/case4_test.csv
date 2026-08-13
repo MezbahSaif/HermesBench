@@ -1,0 +1,16 @@
+task_id
+bug_fix_text_offbyone
+bug_fix_finance_offbyone
+bug_fix_text_wrong_regex
+fastapi_catalog
+write_tests_banking
+bug_fix_finance_bad_default
+refactor_config
+bug_fix_finance_wrong_accum
+bug_fix_scheduling_offbyone
+write_tests_urlparser
+cli_sales
+implement_lru_cache
+bug_fix_scheduling_wrong_key
+fastapi_todos
+docker_flask_api

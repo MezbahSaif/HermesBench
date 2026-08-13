@@ -1,0 +1,14 @@
+task_id
+implement_flatten_json
+bug_fix_scheduling_wrong_compare
+cli_filter
+write_tests_temperature
+cli_word_freq
+write_tests_stats
+docker_cron_worker
+refactor_logs
+fastapi_orders
+implement_max_profit
+bug_fix_finance_wrong_compare
+refactor_invoice
+implement_edit_distance
