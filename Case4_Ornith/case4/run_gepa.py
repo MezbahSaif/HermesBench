@@ -40,6 +40,9 @@ def main():
         api_key=student_cfg.get("api_key", "sk-lm-studio"),
     )
 
+    # CRITICAL: Configure DSPy global LM
+    dspy.configure(lm=student_lm)
+
     reflection_lm = None
     if reflection_cfg:
         reflection_lm = dspy.LM(

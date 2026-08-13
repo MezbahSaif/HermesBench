@@ -39,6 +39,9 @@ def main():
         api_key=student_cfg.get("api_key", "sk-lm-studio"),
     )
 
+    # CRITICAL: Configure DSPy global LM
+    dspy.configure(lm=student_lm)
+
     trainset = load_examples_from_csv(dataset_cfg.get("train_csv"))
     val_csv = dataset_cfg.get("val_csv")
     valset = load_examples_from_csv(val_csv) if Path(val_csv).exists() else []

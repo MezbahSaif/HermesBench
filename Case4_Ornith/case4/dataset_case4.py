@@ -66,6 +66,6 @@ manifest_path = OUT / "SPLIT_MANIFEST.md"
 with open(manifest_path, "w") as f:
     f.write("# Case 4 split manifest\n\n")
     for csv_name, h in manifest.items():
-        f.write(f"- **{csv_name.replace('case4_', '').replace('.csv', '')}**: `{h}`\n")
+        f.write(f"- **{csv_name}**: `{h}`\n")
 
 print("Case 4 split generated and verified against real pool.")

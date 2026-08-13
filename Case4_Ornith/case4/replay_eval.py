@@ -32,7 +32,7 @@ def examples_from_csv(csv_path):
     return tasks
 
 
-def run_prompt_on_testset(prompt, tasks, hermes_interface):
+def run_prompt_on_testset(prompt_template, tasks, hermes_interface):
     results = []
     for task in tasks:
         try:
@@ -44,10 +44,29 @@ def run_prompt_on_testset(prompt, tasks, hermes_interface):
             results.append({"task_id": task.task_id, "score": None, "passed": False, "score_detail": "restore-failed"})
             continue
 
+        # Extract problem text from the task directory
+        workdir = Path("datasets") / "variants" / "tasks" / task.task_id
+        prompt_text = ""
+        for possible in ["problem.json", "task.json", "prompt.json",
+                         "problem.txt", "task.txt", "prompt.txt",
+                         "problem.md", "task.md", "prompt.md"]:
+            p = workdir / possible
+            if p.is_file():
+                try:
+                    prompt_text = p.read_text(encoding="utf-8")[:500]
+                    break
+                except Exception:
+                    continue
+        if not prompt_text.strip():
+            prompt_text = "Implement a solution for the given coding task."
+
+        # Render task prompt dynamically before execution
+        rendered_prompt = prompt_template.replace("{task_id}", task.task_id).replace("{prompt}", prompt_text)
+
         usage_path = Path("datasets") / "variants" / "usage" / f"{task.task_id}.json"
         usage_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            result = hermes_interface.run_task(prompt, usage_path)
+            result = hermes_interface.run_task(rendered_prompt, usage_path)
         except Exception as exc:
             results.append({"task_id": task.task_id, "score": None, "passed": False, "score_detail": "hermes-error"})
             continue
@@ -96,7 +115,7 @@ def main():
     if baseline_prompt_path.exists():
         baseline_prompt = baseline_prompt_path.read_text(encoding="utf-8").strip()
     else:
-        baseline_prompt = "You are Hermes. Solve the following coding task:\nTask ID: {task_id}\nInstruction: Implement a function that solves the given problem and passes the test suite."
+        baseline_prompt = "You are Hermes. Solve the following coding task:\nTask ID: {task_id}\nInstruction: {prompt}"
     
     baseline_results = run_prompt_on_testset(baseline_prompt, test_tasks, iface)
 
