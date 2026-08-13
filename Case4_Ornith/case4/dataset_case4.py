@@ -6,8 +6,9 @@ from pathlib import Path
 
 def get_repo_root():
     current = Path(__file__).resolve()
+    # Walk up to find the HermesBench root which contains datasets/variants/tasks/
     for p in [current] + list(current.parents):
-        if (p / "benchmark").is_dir() and (p / "datasets").is_dir():
+        if (p / "datasets" / "variants" / "tasks").is_dir():
             return p
     return current.parent.parent
 
