@@ -1,12 +1,21 @@
 # run_mipro.py
 import argparse
-import os
 import sys
 from pathlib import Path
 import yaml
 import dspy
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+def get_repo_root():
+    current = Path(__file__).resolve()
+    for p in [current] + list(current.parents):
+        if (p / "benchmark").is_dir() and (p / "datasets").is_dir():
+            return p
+    return current.parent.parent
+
+repo_root = get_repo_root()
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
 from case4.hermes_task_module import HermesTaskModule, hermes_metric
 
 def load_examples_from_csv(csv_path):
@@ -16,7 +25,8 @@ def load_examples_from_csv(csv_path):
         for line in f:
             tid = line.strip()
             if not tid: continue
-            example = dspy.Example(task_id=tid, pristine_files=f"datasets/variants/tasks/{tid}").with_inputs('task_id', 'pristine_files')
+            pristine = str(repo_root / "datasets" / "variants" / "tasks" / tid)
+            example = dspy.Example(task_id=tid, pristine_files=pristine).with_inputs('task_id', 'pristine_files')
             examples.append(example)
     return examples
 
@@ -39,15 +49,15 @@ def main():
         api_key=student_cfg.get("api_key", "sk-lm-studio"),
     )
 
-    # CRITICAL: Configure DSPy global LM
     dspy.configure(lm=student_lm)
 
-    trainset = load_examples_from_csv(dataset_cfg.get("train_csv"))
-    val_csv = dataset_cfg.get("val_csv")
+    train_csv = repo_root / dataset_cfg.get("train_csv", "datasets/case4_train.csv")
+    val_csv = repo_root / dataset_cfg.get("val_csv", "datasets/case4_val.csv")
+    
+    trainset = load_examples_from_csv(train_csv)
     valset = load_examples_from_csv(val_csv) if Path(val_csv).exists() else []
 
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    hermes_exe = repo_root / "hermes.exe" if (repo_root / "hermes.exe").exists() else Path(os.path.expandvars("${LOCALAPPDATA}/hermes/hermes-agent/venv/Scripts/hermes.exe"))
+    hermes_exe = repo_root / "hermes.exe" if (repo_root / "hermes.exe").exists() else Path(sys.executable).parent / "hermes.exe"
     
     module = HermesTaskModule(
         base_prompt_template=case4_cfg.get("base_prompt_template", ""),
@@ -67,7 +77,7 @@ def main():
         
         best_prompt = optimized_program.task_prompt
         with open(f"{args.run_id}_best_prompt.txt", "w") as f:
-            f.write(best_prompt)
+            f.write(str(best_prompt))
         print(f"MIPROv2 finished. Best prompt saved to {args.run_id}_best_prompt.txt")
     except Exception as e:
         import traceback

@@ -1,11 +1,17 @@
 # dataset_case4.py
 # Builds and freezes the train/val/test split for Case 4.
 
-import hashlib, pathlib, random
+import hashlib, random
 from pathlib import Path
 
-# Resolve the real pool location
-REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+def get_repo_root():
+    current = Path(__file__).resolve()
+    for p in [current] + list(current.parents):
+        if (p / "datasets").is_dir():
+            return p
+    return current.parent.parent
+
+REPO_ROOT = get_repo_root()
 POOL_ROOT = REPO_ROOT / "datasets" / "variants" / "tasks"
 
 if not POOL_ROOT.is_dir():

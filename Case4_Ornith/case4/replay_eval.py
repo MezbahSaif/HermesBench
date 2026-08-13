@@ -1,12 +1,21 @@
 # replay_eval.py
 import argparse
-import os
 import sys
 from pathlib import Path
 import scipy.stats as stats
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+def get_repo_root():
+    current = Path(__file__).resolve()
+    for p in [current] + list(current.parents):
+        if (p / "benchmark").is_dir() and (p / "datasets").is_dir():
+            return p
+    return current.parent.parent
+
+repo_root = get_repo_root()
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
 from benchmark.graders import grade
 from benchmark.hermes_interface import HermesInterface
 from benchmark.task_loader import Task
@@ -29,21 +38,15 @@ def examples_from_csv(csv_path):
         for line in f:
             tid = line.strip()
             if tid:
+                workdir = repo_root / "datasets" / "variants" / "tasks" / tid
                 try:
-                    task = Task(
-                        task_id=tid,
-                        category="unknown",
-                        prompt="",
-                        check_type="pass",
-                        expected="",
-                        threshold=0.7,
-                        rubric="",
-                        workdir=Path("")
-                    )
-                    tasks.append(task)
+                    task = Task(tid)
+                    if hasattr(task, 'threshold'):
+                        task.threshold = 0.7
                 except TypeError:
-                    # Task constructor may require additional parameters
-                    pass
+                    task = Task(task_id=tid, category="unknown", prompt="", check_type="pass", 
+                                expected="", threshold=0.7, rubric="", workdir=workdir)
+                tasks.append(task)
     return tasks
 
 
@@ -59,8 +62,7 @@ def run_prompt_on_testset(prompt_template, tasks, hermes_interface):
             results.append({"task_id": task.task_id, "score": None, "passed": False, "score_detail": "restore-failed"})
             continue
 
-        # Extract problem text from the task directory
-        workdir = Path("datasets") / "variants" / "tasks" / task.task_id
+        workdir = repo_root / "datasets" / "variants" / "tasks" / task.task_id
         prompt_text = ""
         for possible in ["problem.json", "task.json", "prompt.json",
                          "problem.txt", "task.txt", "prompt.txt",
@@ -75,10 +77,9 @@ def run_prompt_on_testset(prompt_template, tasks, hermes_interface):
         if not prompt_text.strip():
             prompt_text = "Implement a solution for the given coding task."
 
-        # Render task prompt dynamically before execution
         rendered_prompt = prompt_template.replace("{task_id}", task.task_id).replace("{prompt}", prompt_text)
 
-        usage_path = Path("datasets") / "variants" / "usage" / f"{task.task_id}.json"
+        usage_path = repo_root / "datasets" / "variants" / "usage" / f"{task.task_id}.json"
         usage_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             result = hermes_interface.run_task(rendered_prompt, usage_path)
@@ -112,9 +113,9 @@ def main():
         print("No best prompt found for run", args.run_id)
         return 1
 
-    test_tasks = examples_from_csv("datasets/case4_test.csv")
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    hermes_exe = repo_root / "hermes.exe" if (repo_root / "hermes.exe").exists() else Path(os.path.expandvars("${LOCALAPPDATA}/hermes/hermes-agent/venv/Scripts/hermes.exe"))
+    test_tasks = examples_from_csv(repo_root / "datasets" / "case4_test.csv")
+    
+    hermes_exe = repo_root / "hermes.exe" if (repo_root / "hermes.exe").exists() else Path(sys.executable).parent / "hermes.exe"
     hermes_home = repo_root / "datasets" / "variants" / "tasks"
 
     hermes_cfg = {
@@ -183,7 +184,6 @@ def main():
     df.to_csv(run_dir / "metrics.csv", index=False)
 
     try:
-        sys.path.insert(0, str(repo_root))
         try:
             from analysis.metrics_engine import build_summary, build_improvement, build_gain, verdict, build_case3_table  # type: ignore
         except (ImportError, ModuleNotFoundError) as e:
