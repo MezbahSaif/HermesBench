@@ -7,7 +7,7 @@ from pathlib import Path
 def get_repo_root():
     current = Path(__file__).resolve()
     for p in [current] + list(current.parents):
-        if (p / "datasets").is_dir():
+        if (p / "benchmark").is_dir() and (p / "datasets").is_dir():
             return p
     return current.parent.parent
 
