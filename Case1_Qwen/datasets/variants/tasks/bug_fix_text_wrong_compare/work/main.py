@@ -14,7 +14,7 @@ def word_frequency(text: str, min_len: int = 3) -> dict[str, int]:
     counts: dict[str, int] = {}
     for token in text.split():
         word = token.strip(".,!?;:()\"'").lower()
-        if len(word) > min_len:
+        if len(word) >= min_len:
             counts[word] = counts.get(word, 0) + 1
     return counts
 

@@ -1,0 +1,57 @@
+# Streamlit Dashboard Configuration
+
+version: "1.0"
+
+# Application settings
+application:
+  name: "Streamlit Dashboard"
+  port: 8501
+  debug: false
+  host: "0.0.0.0"
+
+# Task definitions for background workers
+tasks:
+  - name: data_refresh
+    description: "Refresh dashboard metrics data"
+    schedule_type: fixed_interval
+    interval_seconds: 3600
+    enabled: true
+    command: python /app/refresh_metrics.py
+
+  - name: log_cleanup
+    description: "Clean up old log files exceeding size limits"
+    schedule_type: cron
+    cron_expression: "0 */6 * * *"
+    enabled: true
+    command: python /app/cleanup_logs.py
+
+  - name: export_report
+    description: "Export monthly report to output directory"
+    schedule_type: fixed_interval
+    interval_seconds: 86400
+    enabled: false
+    command: python /app/export_monthly_report.py
+
+# Logging configuration (RotatingFileHandler)
+logging:
+  level: INFO
+  format: "%(asctime)s | %(levelname)-8s | %(name)-25s | %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+  handlers:
+    console:
+      enabled: true
+      formatter: standard
+    file:
+      enabled: true
+      log_dir: /data/logs
+      filename: app.log
+      max_bytes: 10485760  # 10 MB per rotated log file
+      backup_count: 5     # Keep 5 rotated backups (rotate on size)
+      formatter: detailed
+
+# Data storage configuration
+storage:
+  data_dir: "/app/data"
+  output_dir: "/data/output"
+  cache_enabled: true
+  cache_ttl_hours: 24

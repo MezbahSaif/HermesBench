@@ -1,0 +1,3 @@
+# Crontab for Streamlit Dashboard background tasks
+# Runs every minute - checked by worker.py for cron-style scheduling
+* * * * * /bin/true

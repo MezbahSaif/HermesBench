@@ -1,12 +1,14 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List
+import json
 
 app = FastAPI()
 
-# In-memory storage
-todos: List[dict] = []
-id_counter = 1
+
+# Load initial data from data.json at startup
+with open("data.json", "r") as f:
+    todos = json.load(f)
+next_id = max((t["id"] for t in todos), default=0) + 1
 
 
 class TodoCreate(BaseModel):
@@ -14,37 +16,30 @@ class TodoCreate(BaseModel):
 
 
 @app.get("/todos")
-def list_todos() -> List[dict]:
+def list_todos():
     return todos
 
 
 @app.get("/todos/{todo_id}")
-def get_todo(todo_id: int) -> dict:
-    global id_counter
+def get_todo(todo_id: int):
     for todo in todos:
         if todo["id"] == todo_id:
             return todo
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+    raise HTTPException(status_code=404, detail="not found")
 
 
-@app.post("/todos", status_code=status.HTTP_201_CREATED)
-def create_todo(todo: TodoCreate) -> dict:
-    global id_counter
-    new_todo = {
-        "id": id_counter,
-        "task": todo.task,
-        "done": False,
-    }
+@app.post("/todos", status_code=201)
+def create_todo(todo_data: TodoCreate):
+    new_todo = {"id": next_id, "task": todo_data.task, "done": False}
     todos.append(new_todo)
-    id_counter += 1
+    next_id += 1
     return new_todo
 
 
-@app.delete("/todos/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_todo(todo_id: int) -> None:
-    global id_counter
+@app.delete("/todos/{todo_id}", status_code=204)
+def delete_todo(todo_id: int):
     for i, todo in enumerate(todos):
         if todo["id"] == todo_id:
-            todos.pop(i)
-            return
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+            del todos[i]
+            return None
+    raise HTTPException(status_code=404, detail="not found")

@@ -1,0 +1,18 @@
+{
+  "estimated_cost_usd": 0.0,
+  "cost_status": "unknown",
+  "cost_source": "none",
+  "input_tokens": 724523,
+  "output_tokens": 8919,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "reasoning_tokens": 2596,
+  "total_tokens": 733442,
+  "api_calls": 27,
+  "model": "openai/ornith-1.0-9b",
+  "provider": "lmstudio",
+  "session_id": "20260814_101951_edae1f",
+  "completed": true,
+  "failed": false,
+  "service_tier": null
+}

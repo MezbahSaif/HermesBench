@@ -4,4 +4,17 @@ def max_profit(prices: list[float]) -> float:
 
     Example: max_profit([7, 1, 5, 3, 6, 4]) == 5.0
     """
-    raise NotImplementedError
+    if not prices or len(prices) < 2:
+        return 0.0
+
+    min_price = prices[0]
+    max_profit_val = 0.0
+
+    for price in prices[1:]:
+        profit = price - min_price
+        if profit > max_profit_val:
+            max_profit_val = profit
+        elif price < min_price:
+            min_price = price
+
+    return max_profit_val

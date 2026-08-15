@@ -18,5 +18,6 @@ class Account:
         return self.balance
 
     def transfer(self, other: "Account", amount: float) -> float:
+        self.withdraw(amount)
         other.balance += amount
         return self.balance

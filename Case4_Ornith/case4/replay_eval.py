@@ -20,6 +20,7 @@ from benchmark.graders import grade
 from benchmark.hermes_interface import HermesInterface
 from benchmark.infrastructure_recovery import restore_workspace
 from benchmark.task_loader import Task
+from benchmark.config_loader import detect_hermes
 
 
 def load_best_prompt(run_id):
@@ -33,21 +34,36 @@ def load_best_prompt(run_id):
 
 
 def examples_from_csv(csv_path):
+    meta_path = repo_root / "datasets" / "case4_tasks.json"
+    if meta_path.exists():
+        import json
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    else:
+        meta = {}
     tasks = []
     with open(csv_path, newline="") as f:
         f.readline()
         for line in f:
             tid = line.strip()
-            if tid:
-                workdir = repo_root / "datasets" / "variants" / "tasks" / tid / "work"
-                try:
-                    task = Task(tid)
-                    if hasattr(task, 'threshold'):
-                        task.threshold = 0.7
-                except TypeError:
-                    task = Task(task_id=tid, category="unknown", prompt="", check_type="pass", 
-                                expected="", threshold=0.7, rubric="", workdir=workdir)
-                tasks.append(task)
+            if not tid:
+                continue
+            workdir = repo_root / "datasets" / "variants" / "tasks" / tid / "work"
+            md = meta.get(tid)
+            if md:
+                task = Task(task_id=tid,
+                            category=md.get("category", "unknown"),
+                            prompt="",
+                            check_type=md.get("check_type", ""),
+                            expected=md.get("expected", ""),
+                            threshold=float(md.get("threshold", 0.7) or 0.7),
+                            rubric=md.get("rubric", ""),
+                            workdir=workdir,
+                            family=md.get("family", ""),
+                            banned=list(md.get("banned", [])))
+            else:
+                task = Task(task_id=tid, category="unknown", prompt="", check_type="pass",
+                            expected="", threshold=0.7, rubric="", workdir=workdir)
+            tasks.append(task)
     return tasks
 
 
@@ -117,11 +133,19 @@ def main():
 
     test_tasks = examples_from_csv(repo_root / "datasets" / "case4_test.csv")
     
-    hermes_exe = repo_root / "hermes.exe" if (repo_root / "hermes.exe").exists() else Path(sys.executable).parent / "hermes.exe"
+    detected = detect_hermes()
+    if detected:
+        hermes_exe = Path(detected[0])
+        hermes_real_home = Path(detected[1])
+        print(f"[replay_eval] hermes exe: {hermes_exe}")
+        print(f"[replay_eval] hermes real home: {hermes_real_home}")
+    else:
+        hermes_exe = repo_root / "hermes.exe" if (repo_root / "hermes.exe").exists() else Path(sys.executable).parent / "hermes.exe"
+        hermes_real_home = repo_root
     hermes_home = repo_root / "datasets" / "variants" / "tasks"
 
     hermes_cfg = {
-        "hermes": {"executable": str(hermes_exe), "real_home": str(hermes_home), "model": "", "provider": "", "extra_args": []},
+        "hermes": {"executable": str(hermes_exe), "real_home": str(hermes_real_home), "model": "", "provider": "", "extra_args": []},
         "benchmark": {"pass_threshold": 0.7},
         "log_metrics": {},
     }
@@ -186,12 +210,7 @@ def main():
     df.to_csv(run_dir / "metrics.csv", index=False)
 
     try:
-        try:
-            from analysis.metrics_engine import build_summary, build_improvement, build_gain, verdict, build_case3_table  # type: ignore
-        except (ImportError, ModuleNotFoundError) as e:
-            print("analysis.metrics_engine not available, skipping xlsx generation")
-            return 0
-        
+        from analysis.metrics_engine import build_summary, build_improvement, build_gain, verdict, build_case3_table  # type: ignore
         with pd.ExcelWriter(run_dir / "results.xlsx", engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name="metrics", index=False)
             build_summary(df).to_excel(writer, sheet_name="summary", index=False)
@@ -199,6 +218,22 @@ def main():
             build_gain(df).to_excel(writer, sheet_name="gain", index=False)
             verdict(df)["statistics"].to_excel(writer, sheet_name="trends", index=False)
             build_case3_table(df).to_excel(writer, sheet_name="case3", index=False)
+    except (ImportError, ModuleNotFoundError):
+        try:
+            summary_rows = []
+            for arm in ["optimized", "baseline"]:
+                sub = df[df["arm"] == arm]
+                summary_rows.append({"arm": arm, "executions": len(sub),
+                                     "passed": int(sub["passed"].sum()),
+                                     "pass_rate": sub["passed"].mean(),
+                                     "avg_score": sub["score"].mean()})
+            summary_df = pd.DataFrame(summary_rows)
+            with pd.ExcelWriter(run_dir / "results.xlsx", engine="openpyxl") as writer:
+                df.to_excel(writer, sheet_name="metrics", index=False)
+                summary_df.to_excel(writer, sheet_name="summary", index=False)
+            print("analysis.metrics_engine not available - wrote fallback results.xlsx")
+        except Exception as exc:
+            print(f"xlsx write skipped: {exc}")
     except Exception as exc:
         print(f"xlsx write skipped: {exc}")
 

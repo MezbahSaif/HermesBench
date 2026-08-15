@@ -1,0 +1,517 @@
+{
+"G:\\Hermes\\hermes-agent\\tools\\ansi_strip.py": [
+1785688759547966700,
+3562,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\approval.py": [
+1785688759548968000,
+189740,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\async_delegation.py": [
+1785688759548968000,
+62161,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\audio_container.py": [
+1785688759549966000,
+4007,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\binary_extensions.py": [
+1785688759549966000,
+1603,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\blueprints.py": [
+1785688759549966000,
+12319,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\browser_camofox.py": [
+1785688759549966000,
+36328,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\browser_camofox_state.py": [
+1785688759550968700,
+1635,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\browser_cdp_tool.py": [
+1785688759550968700,
+27883,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\browser_dialog_tool.py": [
+1785688759550968700,
+5682,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\browser_supervisor.py": [
+1785688759550968700,
+65299,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\browser_tool.py": [
+1785688759551987800,
+224020,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\budget_config.py": [
+1785688759552988100,
+5137,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\checkpoint_manager.py": [
+1785688759552988100,
+77496,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\clarify_gateway.py": [
+1785688759552988100,
+17748,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\clarify_tool.py": [
+1785688759552988100,
+11276,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\close_terminal_tool.py": [
+1785688759553987400,
+2723,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\code_execution_tool.py": [
+1785688759553987400,
+85429,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\computer_use_tool.py": [
+1785688759556987300,
+1360,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\credential_files.py": [
+1785688759557988500,
+20885,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\cronjob_tools.py": [
+1785688759557988500,
+59425,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\daemon_pool.py": [
+1785688759557988500,
+2533,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\debug_helpers.py": [
+1785688759557988500,
+3782,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\delegate_tool.py": [
+1785688759558988800,
+178864,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\delegation_live_log.py": [
+1785688759558988800,
+18371,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\desktop_ui.py": [
+1785688759559989300,
+1466,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\discord_tool.py": [
+1785688759559989300,
+41291,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\env_passthrough.py": [
+1785688759559989300,
+9489,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\env_probe.py": [
+1785688759559989300,
+15022,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\fal_common.py": [
+1785688759564095500,
+7184,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\feishu_doc_tool.py": [
+1785688759564095500,
+4645,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\feishu_drive_tool.py": [
+1785688759565094700,
+13767,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\file_operations.py": [
+1785688759565094700,
+116450,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\file_state.py": [
+1785688759566094000,
+12685,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\file_tools.py": [
+1785688759566094000,
+102416,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\flux3_video_tool.py": [
+1785688759567096100,
+53245,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\focus_pane_tool.py": [
+1785688759567096100,
+2410,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\fuzzy_match.py": [
+1785688759567096100,
+43425,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\homeassistant_tool.py": [
+1785688759567096100,
+18551,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\hook_output_spill.py": [
+1785688759568094500,
+8013,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\image_generation_tool.py": [
+1785688759568094500,
+67082,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\image_source.py": [
+1785688759568094500,
+17005,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\interrupt.py": [
+1785688759569094000,
+4478,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\kanban_tools.py": [
+1785688759569094000,
+91736,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\lazy_deps.py": [
+1785688759569094000,
+51342,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\managed_tool_gateway.py": [
+1785688759570094000,
+17275,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\mcp_dashboard_oauth.py": [
+1785688759570094000,
+5513,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\mcp_oauth.py": [
+1785688759570094000,
+59061,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\mcp_oauth_manager.py": [
+1785688759571095000,
+35016,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\mcp_stdio_watchdog.py": [
+1785688759571095000,
+6080,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\memory_tool.py": [
+1785688759572203900,
+56319,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\microsoft_graph_auth.py": [
+1785688759573203600,
+8177,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\microsoft_graph_client.py": [
+1785688759573203600,
+14582,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\neutts_synth.py": [
+1785688759577202400,
+3995,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\open_preview_tool.py": [
+1785688759577202400,
+3717,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\openrouter_client.py": [
+1785688759577202400,
+1124,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\osv_check.py": [
+1785688759577202400,
+7622,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\patch_parser.py": [
+1785688759577202400,
+27109,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\path_security.py": [
+1785688759578201900,
+1354,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\process_registry.py": [
+1785688759578201900,
+114320,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\project_tools.py": [
+1785688759578201900,
+6874,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\react_to_message_tool.py": [
+1785688759579201400,
+6599,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\read_extract.py": [
+1785688759579201400,
+8717,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\read_terminal_tool.py": [
+1785688759579201400,
+3311,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\schema_sanitizer.py": [
+1785688759580201300,
+26005,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\send_message_tool.py": [
+1785688759580201300,
+97924,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\session_search_tool.py": [
+1785688759581202500,
+49312,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\skill_manager_tool.py": [
+1785688759581202500,
+71332,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\skill_provenance.py": [
+1785688759581202500,
+2680,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\skill_usage.py": [
+1785688759581202500,
+46326,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\skills_ast_audit.py": [
+1785688759582475300,
+5329,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\skills_guard.py": [
+1785688759582475300,
+48033,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\skills_hub.py": [
+1785688759583475100,
+177310,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\skills_sync.py": [
+1785688759583475100,
+59789,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\skills_sync_client.py": [
+1785688759584474900,
+91168,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\skills_tool.py": [
+1785688759584474900,
+72065,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\slash_confirm.py": [
+1785688759584474900,
+5918,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\terminal_tool.py": [
+1785688759585475400,
+151519,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\thread_context.py": [
+1785688759585475400,
+4814,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\threat_patterns.py": [
+1785688759585475400,
+14270,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\tirith_security.py": [
+1785688759586474300,
+34869,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\todo_tool.py": [
+1785688759586474300,
+13282,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\tool_backend_helpers.py": [
+1785688759587474200,
+11583,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\tool_output_limits.py": [
+1785688759587474200,
+4101,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\tool_result_storage.py": [
+1785688759587474200,
+9592,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\tool_search.py": [
+1785688759587474200,
+42142,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\transcription_tools.py": [
+1785688759588476200,
+110464,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\tts_streaming.py": [
+1785688759588476200,
+19032,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\tts_text_normalize.py": [
+1785688759588476200,
+12300,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\tts_tool.py": [
+1785688759589475100,
+158416,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\url_safety.py": [
+1785688759589475100,
+35255,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\video_generation_tool.py": [
+1785688759589475100,
+22429,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\vision_tools.py": [
+1785688759590977400,
+81156,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\voice_mode.py": [
+1785688759590977400,
+98179,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\wake_word.py": [
+1785688759590977400,
+50244,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\web_tools.py": [
+1785688759593984500,
+54602,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\website_policy.py": [
+1785688759594983300,
+10127,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\working_diff.py": [
+1785688759594983300,
+4805,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\write_approval.py": [
+1785688759594983300,
+19905,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\x_search_tool.py": [
+1785688759594983300,
+21153,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\xai_http.py": [
+1785688759595981400,
+12452,
+false
+],
+"G:\\Hermes\\hermes-agent\\tools\\xai_video_tools.py": [
+1785688759595981400,
+6539,
+true
+],
+"G:\\Hermes\\hermes-agent\\tools\\yuanbao_tools.py": [
+1785688759595981400,
+28152,
+true
+]
+}

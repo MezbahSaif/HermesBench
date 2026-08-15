@@ -41,8 +41,8 @@ def compute_subtotal(items: list[LineItem]) -> float:
 
 def apply_bulk_discount(subtotal: float, min_amount: float = 500.0,
                         rate: float = 0.10) -> float:
-    """Subtotals strictly above min_amount get rate % off."""
-    if subtotal > min_amount:
+    """Subtotals equal to or above min_amount get rate % off."""
+    if subtotal >= min_amount:
         return round(subtotal * (1.0 - rate), 2)
     return round(subtotal, 2)
 

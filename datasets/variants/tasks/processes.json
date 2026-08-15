@@ -1,0 +1,22 @@
+[
+  {
+    "session_id": "proc_4e90a54e242e",
+    "command": "cd \"G:/HermesBench/datasets/variants/tasks/fastapi_todos/work\" && cp data.json data.json.bak 2>/dev/null; echo '[{\"id\": 1, \"task\": \"buy milk\", \"done\": false}]' > data.json && uvicorn app:app --host 0.0.0.0 --port 8765",
+    "pid": 378476,
+    "pid_scope": "host",
+    "host_start_time": 178673912133,
+    "cwd": "G:\\HermesBench\\datasets\\variants\\tasks\\fastapi_todos\\work",
+    "started_at": 1786739121.3267632,
+    "task_id": "default",
+    "session_key": "ffbc064a-7052-4ac2-8735-d5e4f5c9e389",
+    "watcher_platform": "",
+    "watcher_chat_id": "",
+    "watcher_user_id": "",
+    "watcher_user_name": "",
+    "watcher_thread_id": "",
+    "watcher_message_id": "",
+    "watcher_interval": 0,
+    "notify_on_complete": false,
+    "watch_patterns": []
+  }
+]

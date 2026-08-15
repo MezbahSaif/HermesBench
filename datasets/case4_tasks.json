@@ -1,0 +1,316 @@
+{
+  "bug_fix_finance_offbyone": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\ncheck(\"parses 3 rows\",\n      len(mod.parse_lines([\"a,x,2,1.5\", \"b,y,3,2.0\", \"c,z,1,0.5\"])) == 3)\ncheck(\"skips malformed\",\n      len(mod.parse_lines([\"a,x,2,1.5\", \"oops\", \"b,y,3,2.0\"])) == 2)\nitems = mod.parse_lines([\"a,x,2,1.5\", \"b,y,3,2.0\"])\ncheck(\"subtotal\", mod.compute_subtotal(items) == 9.0)\ncheck(\"subtotal counts last item\",\n      mod.compute_subtotal(mod.parse_lines([\"a,x,1,1.0\", \"b,y,1,1.0\", \"c,z,1,1.0\"])) == 3.0)\ncheck(\"bulk at boundary\", mod.apply_bulk_discount(500.0) == 450.0)\ncheck(\"bulk above\", mod.apply_bulk_discount(600.0) == 540.0)\ncheck(\"no bulk below\", mod.apply_bulk_discount(499.99) == 499.99)\ncheck(\"tax default\", mod.compute_tax(100.0) == 7.5)\ncheck(\"tax explicit\", mod.compute_tax(100.0, 0.10) == 10.0)\ncheck(\"qty matters\", mod.compute_subtotal(mod.parse_lines([\"a,x,4,1.0\"])) == 4.0)\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "bug_fix_finance_wrong_compare": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\ncheck(\"parses 3 rows\",\n      len(mod.parse_lines([\"a,x,2,1.5\", \"b,y,3,2.0\", \"c,z,1,0.5\"])) == 3)\ncheck(\"skips malformed\",\n      len(mod.parse_lines([\"a,x,2,1.5\", \"oops\", \"b,y,3,2.0\"])) == 2)\nitems = mod.parse_lines([\"a,x,2,1.5\", \"b,y,3,2.0\"])\ncheck(\"subtotal\", mod.compute_subtotal(items) == 9.0)\ncheck(\"subtotal counts last item\",\n      mod.compute_subtotal(mod.parse_lines([\"a,x,1,1.0\", \"b,y,1,1.0\", \"c,z,1,1.0\"])) == 3.0)\ncheck(\"bulk at boundary\", mod.apply_bulk_discount(500.0) == 450.0)\ncheck(\"bulk above\", mod.apply_bulk_discount(600.0) == 540.0)\ncheck(\"no bulk below\", mod.apply_bulk_discount(499.99) == 499.99)\ncheck(\"tax default\", mod.compute_tax(100.0) == 7.5)\ncheck(\"tax explicit\", mod.compute_tax(100.0, 0.10) == 10.0)\ncheck(\"qty matters\", mod.compute_subtotal(mod.parse_lines([\"a,x,4,1.0\"])) == 4.0)\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "bug_fix_finance_bad_default": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\ncheck(\"parses 3 rows\",\n      len(mod.parse_lines([\"a,x,2,1.5\", \"b,y,3,2.0\", \"c,z,1,0.5\"])) == 3)\ncheck(\"skips malformed\",\n      len(mod.parse_lines([\"a,x,2,1.5\", \"oops\", \"b,y,3,2.0\"])) == 2)\nitems = mod.parse_lines([\"a,x,2,1.5\", \"b,y,3,2.0\"])\ncheck(\"subtotal\", mod.compute_subtotal(items) == 9.0)\ncheck(\"subtotal counts last item\",\n      mod.compute_subtotal(mod.parse_lines([\"a,x,1,1.0\", \"b,y,1,1.0\", \"c,z,1,1.0\"])) == 3.0)\ncheck(\"bulk at boundary\", mod.apply_bulk_discount(500.0) == 450.0)\ncheck(\"bulk above\", mod.apply_bulk_discount(600.0) == 540.0)\ncheck(\"no bulk below\", mod.apply_bulk_discount(499.99) == 499.99)\ncheck(\"tax default\", mod.compute_tax(100.0) == 7.5)\ncheck(\"tax explicit\", mod.compute_tax(100.0, 0.10) == 10.0)\ncheck(\"qty matters\", mod.compute_subtotal(mod.parse_lines([\"a,x,4,1.0\"])) == 4.0)\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "bug_fix_finance_wrong_accum": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\ncheck(\"parses 3 rows\",\n      len(mod.parse_lines([\"a,x,2,1.5\", \"b,y,3,2.0\", \"c,z,1,0.5\"])) == 3)\ncheck(\"skips malformed\",\n      len(mod.parse_lines([\"a,x,2,1.5\", \"oops\", \"b,y,3,2.0\"])) == 2)\nitems = mod.parse_lines([\"a,x,2,1.5\", \"b,y,3,2.0\"])\ncheck(\"subtotal\", mod.compute_subtotal(items) == 9.0)\ncheck(\"subtotal counts last item\",\n      mod.compute_subtotal(mod.parse_lines([\"a,x,1,1.0\", \"b,y,1,1.0\", \"c,z,1,1.0\"])) == 3.0)\ncheck(\"bulk at boundary\", mod.apply_bulk_discount(500.0) == 450.0)\ncheck(\"bulk above\", mod.apply_bulk_discount(600.0) == 540.0)\ncheck(\"no bulk below\", mod.apply_bulk_discount(499.99) == 499.99)\ncheck(\"tax default\", mod.compute_tax(100.0) == 7.5)\ncheck(\"tax explicit\", mod.compute_tax(100.0, 0.10) == 10.0)\ncheck(\"qty matters\", mod.compute_subtotal(mod.parse_lines([\"a,x,4,1.0\"])) == 4.0)\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "bug_fix_text_offbyone": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\ncheck(\"slug lower\", mod.slugify(\"Hello World\") == \"hello-world\")\ncheck(\"slug punct\", mod.slugify(\"Hi, there!!  Plan B\") == \"hi-there-plan-b\")\nfreq = mod.word_frequency(\"the cat and the dog, the mouse\")\ncheck(\"freq counts\", freq[\"the\"] == 3)\ncheck(\"freq min_len includes 3\", freq[\"and\"] == 1)\ncheck(\"freq counts last word\",\n      mod.word_frequency(\"alpha beta gamma\")[\"gamma\"] == 1)\nf2 = mod.word_frequency(\"a to the bee\")\ncheck(\"freq excludes short\", \"to\" not in f2)\ncheck(\"splits on period\", len(mod.sentence_split(\"Hello. World.\")) == 2)\ncheck(\"splits mixed\", len(mod.sentence_split(\"One. Two! Three?\")) == 3)\ncheck(\"no trailing empty\", mod.sentence_split(\"Bye!\") == [\"Bye!\"])\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "bug_fix_text_wrong_compare": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\ncheck(\"slug lower\", mod.slugify(\"Hello World\") == \"hello-world\")\ncheck(\"slug punct\", mod.slugify(\"Hi, there!!  Plan B\") == \"hi-there-plan-b\")\nfreq = mod.word_frequency(\"the cat and the dog, the mouse\")\ncheck(\"freq counts\", freq[\"the\"] == 3)\ncheck(\"freq min_len includes 3\", freq[\"and\"] == 1)\ncheck(\"freq counts last word\",\n      mod.word_frequency(\"alpha beta gamma\")[\"gamma\"] == 1)\nf2 = mod.word_frequency(\"a to the bee\")\ncheck(\"freq excludes short\", \"to\" not in f2)\ncheck(\"splits on period\", len(mod.sentence_split(\"Hello. World.\")) == 2)\ncheck(\"splits mixed\", len(mod.sentence_split(\"One. Two! Three?\")) == 3)\ncheck(\"no trailing empty\", mod.sentence_split(\"Bye!\") == [\"Bye!\"])\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "bug_fix_text_wrong_regex": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\ncheck(\"slug lower\", mod.slugify(\"Hello World\") == \"hello-world\")\ncheck(\"slug punct\", mod.slugify(\"Hi, there!!  Plan B\") == \"hi-there-plan-b\")\nfreq = mod.word_frequency(\"the cat and the dog, the mouse\")\ncheck(\"freq counts\", freq[\"the\"] == 3)\ncheck(\"freq min_len includes 3\", freq[\"and\"] == 1)\ncheck(\"freq counts last word\",\n      mod.word_frequency(\"alpha beta gamma\")[\"gamma\"] == 1)\nf2 = mod.word_frequency(\"a to the bee\")\ncheck(\"freq excludes short\", \"to\" not in f2)\ncheck(\"splits on period\", len(mod.sentence_split(\"Hello. World.\")) == 2)\ncheck(\"splits mixed\", len(mod.sentence_split(\"One. Two! Three?\")) == 3)\ncheck(\"no trailing empty\", mod.sentence_split(\"Bye!\") == [\"Bye!\"])\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "bug_fix_scheduling_wrong_compare": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\na = mod.Shift(\"a\", 0, 2)\nb = mod.Shift(\"b\", 2, 4)\ncheck(\"no touch overlap\", not mod.is_overlap(a, b))\ncheck(\"real overlap\", mod.is_overlap(a, mod.Shift(\"x\", 1, 3)))\nm = mod.merge_shifts([mod.Shift(\"a\", 4, 6), mod.Shift(\"a\", 0, 2), mod.Shift(\"a\", 1, 3)])\ncheck(\"merge pairs\", len(m) == 2)\ncheck(\"merge keeps last\", m[-1].end == 6)\nm2 = mod.merge_shifts([mod.Shift(\"a\", 0, 2), mod.Shift(\"a\", 2, 4)])\ncheck(\"merge touching\", len(m2) == 1)\ncheck(\"total hours\",\n      mod.total_hours([mod.Shift(\"a\", 0, 2), mod.Shift(\"b\", 3, 8)]) == 7)\ncheck(\"empty total\", mod.total_hours([]) == 0)\ncheck(\"merge does not mutate\", (lambda s: (mod.merge_shifts(s), len(s)))([mod.Shift(\"a\", 1, 3), mod.Shift(\"a\", 0, 2)])[1] == 2)\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "bug_fix_scheduling_wrong_key": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\na = mod.Shift(\"a\", 0, 2)\nb = mod.Shift(\"b\", 2, 4)\ncheck(\"no touch overlap\", not mod.is_overlap(a, b))\ncheck(\"real overlap\", mod.is_overlap(a, mod.Shift(\"x\", 1, 3)))\nm = mod.merge_shifts([mod.Shift(\"a\", 4, 6), mod.Shift(\"a\", 0, 2), mod.Shift(\"a\", 1, 3)])\ncheck(\"merge pairs\", len(m) == 2)\ncheck(\"merge keeps last\", m[-1].end == 6)\nm2 = mod.merge_shifts([mod.Shift(\"a\", 0, 2), mod.Shift(\"a\", 2, 4)])\ncheck(\"merge touching\", len(m2) == 1)\ncheck(\"total hours\",\n      mod.total_hours([mod.Shift(\"a\", 0, 2), mod.Shift(\"b\", 3, 8)]) == 7)\ncheck(\"empty total\", mod.total_hours([]) == 0)\ncheck(\"merge does not mutate\", (lambda s: (mod.merge_shifts(s), len(s)))([mod.Shift(\"a\", 1, 3), mod.Shift(\"a\", 0, 2)])[1] == 2)\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "bug_fix_scheduling_offbyone": {
+    "family": "bug_fix",
+    "category": "se_bug_fix",
+    "check_type": "file_code_exec",
+    "expected": "main.py\na = mod.Shift(\"a\", 0, 2)\nb = mod.Shift(\"b\", 2, 4)\ncheck(\"no touch overlap\", not mod.is_overlap(a, b))\ncheck(\"real overlap\", mod.is_overlap(a, mod.Shift(\"x\", 1, 3)))\nm = mod.merge_shifts([mod.Shift(\"a\", 4, 6), mod.Shift(\"a\", 0, 2), mod.Shift(\"a\", 1, 3)])\ncheck(\"merge pairs\", len(m) == 2)\ncheck(\"merge keeps last\", m[-1].end == 6)\nm2 = mod.merge_shifts([mod.Shift(\"a\", 0, 2), mod.Shift(\"a\", 2, 4)])\ncheck(\"merge touching\", len(m2) == 1)\ncheck(\"total hours\",\n      mod.total_hours([mod.Shift(\"a\", 0, 2), mod.Shift(\"b\", 3, 8)]) == 7)\ncheck(\"empty total\", mod.total_hours([]) == 0)\ncheck(\"merge does not mutate\", (lambda s: (mod.merge_shifts(s), len(s)))([mod.Shift(\"a\", 1, 3), mod.Shift(\"a\", 0, 2)])[1] == 2)\n",
+    "threshold": 0.7,
+    "rubric": "bug_fix (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "implement_max_profit": {
+    "family": "implement_function",
+    "category": "se_implement_function",
+    "check_type": "file_code_exec",
+    "expected": "solution.py\ncheck(\"example\", mod.max_profit([7, 1, 5, 3, 6, 4]) == 5.0)\ncheck(\"strictly falling\", mod.max_profit([5, 4, 3, 2, 1]) == 0.0)\ncheck(\"single\", mod.max_profit([3]) == 0.0)\ncheck(\"empty\", mod.max_profit([]) == 0.0)\ncheck(\"later only\", mod.max_profit([10, 1, 1, 1]) == 0.0)\ncheck(\"big jump\", mod.max_profit([1, 2, 3, 100, 0, 50]) == 99.0)\ncheck(\"float\", mod.max_profit([1.5, 2.5, 1.0]) == 1.0)\n",
+    "threshold": 0.7,
+    "rubric": "implement_function (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "implement_merge_intervals": {
+    "family": "implement_function",
+    "category": "se_implement_function",
+    "check_type": "file_code_exec",
+    "expected": "solution.py\ncheck(\"example\", mod.merge_intervals([[1, 3], [2, 6], [8, 10], [15, 18]])\n      == [[1, 6], [8, 10], [15, 18]])\ncheck(\"touching merge\", mod.merge_intervals([[1, 2], [2, 3]]) == [[1, 3]])\ncheck(\"empty\", mod.merge_intervals([]) == [])\ncheck(\"single\", mod.merge_intervals([[5, 7]]) == [[5, 7]])\ncheck(\"unsorted input\", mod.merge_intervals([[10, 12], [1, 2], [2, 4]])\n      == [[1, 4], [10, 12]])\ncheck(\"no overlap\", mod.merge_intervals([[1, 2], [3, 4]]) == [[1, 2], [3, 4]])\ncheck(\"contained\", mod.merge_intervals([[1, 10], [2, 3]]) == [[1, 10]])\n",
+    "threshold": 0.7,
+    "rubric": "implement_function (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "implement_knapsack": {
+    "family": "implement_function",
+    "category": "se_implement_function",
+    "check_type": "file_code_exec",
+    "expected": "solution.py\ncheck(\"example\", mod.knapsack(10, [5, 4, 6, 3], [10, 40, 30, 50]) == 90)\ncheck(\"zero capacity\", mod.knapsack(0, [1, 2], [5, 9]) == 0)\ncheck(\"heavy items\", mod.knapsack(3, [4, 5], [100, 200]) == 0)\ncheck(\"exact fit\", mod.knapsack(6, [2, 3, 4], [3, 4, 5]) == 8)\ncheck(\"no reuse\", mod.knapsack(5, [2, 2, 2], [1, 1, 1]) == 2)\ncheck(\"empty\", mod.knapsack(5, [], []) == 0)\ncheck(\"choose heavy value\", mod.knapsack(8, [8, 1, 1, 1], [20, 2, 2, 2]) == 20)\n",
+    "threshold": 0.7,
+    "rubric": "implement_function (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "implement_edit_distance": {
+    "family": "implement_function",
+    "category": "se_implement_function",
+    "check_type": "file_code_exec",
+    "expected": "solution.py\ncheck(\"example\", mod.edit_distance(\"kitten\", \"sitting\") == 3)\ncheck(\"identical\", mod.edit_distance(\"abc\", \"abc\") == 0)\ncheck(\"empty vs\", mod.edit_distance(\"\", \"xyz\") == 3)\ncheck(\"vs empty\", mod.edit_distance(\"abc\", \"\") == 3)\ncheck(\"one char\", mod.edit_distance(\"a\", \"b\") == 1)\ncheck(\"insertion\", mod.edit_distance(\"abc\", \"abxc\") == 1)\ncheck(\"long\", mod.edit_distance(\"abcdef\", \"azced\") == 3)\n",
+    "threshold": 0.7,
+    "rubric": "implement_function (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "implement_flatten_json": {
+    "family": "implement_function",
+    "category": "se_implement_function",
+    "check_type": "file_code_exec",
+    "expected": "solution.py\ncheck(\"example\", mod.flatten_json({\"a\": {\"b\": 1}, \"c\": [1, 2]})\n      == {\"a.b\": 1, \"c\": [1, 2]})\ncheck(\"deep\", mod.flatten_json({\"x\": {\"y\": {\"z\": 2}}}) == {\"x.y.z\": 2})\ncheck(\"mixed\", mod.flatten_json({\"a\": 1, \"b\": {\"c\": 2}}) == {\"a\": 1, \"b.c\": 2})\ncheck(\"empty\", mod.flatten_json({}) == {})\ncheck(\"list kept\", mod.flatten_json({\"l\": [{\"n\": 1}]}) == {\"l\": [{\"n\": 1}]})\ncheck(\"empty inner\", mod.flatten_json({\"a\": {}, \"b\": 1}) == {\"b\": 1})\n",
+    "threshold": 0.7,
+    "rubric": "implement_function (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "implement_lru_cache": {
+    "family": "implement_function",
+    "category": "se_implement_function",
+    "check_type": "file_code_exec",
+    "expected": "solution.py\nc = mod.LRUCache(2)\nc.put(1, 10); c.put(2, 20)\ncheck(\"hit\", c.get(1) == 10)\nc.put(3, 30)\ncheck(\"evicts lru\", c.get(2) == -1)\ncheck(\"keeps recent\", c.get(1) == 10 and c.get(3) == 30)\nc.put(4, 40)\ncheck(\"evicts second lru\", c.get(1) == -1)\ncheck(\"refresh on put\", c.get(3) == 30 and c.get(4) == 40)\ncheck(\"miss on empty\", mod.LRUCache(1).get(9) == -1)\n_upd = mod.LRUCache(2)\n_upd.put(1, 1)\n_upd.put(1, 2)\ncheck(\"update preserves\", _upd.get(1) == 2)\n",
+    "threshold": 0.7,
+    "rubric": "implement_function (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "refactor_invoice": {
+    "family": "refactor",
+    "category": "se_refactor",
+    "check_type": "file_code_exec",
+    "expected": "ugly.py\nrows = [\"s1,Widget,2,1.50\", \"s2,Gadget,1,3.00\"]\nout = mod.process(rows)\ncheck(\"item lines\", out[0] == \"Widget x2 @ 1.5\" and out[1] == \"Gadget x1 @ 3.0\")\ncheck(\"tax\", out[2] == \"TAX 0.45\")\ncheck(\"total\", out[3] == \"TOTAL 6.45\")\ncheck(\"empty\", mod.process([]) == [\"TAX 0.0\", \"TOTAL 0.0\"])\ncheck(\"single row\", mod.process([\"s1,Widget,4,1.25\"])[1] == \"TAX 0.38\")\n",
+    "threshold": 0.7,
+    "rubric": "refactor (medium): correct, working solution that satisfies every automated check.",
+    "banned": [
+      "global "
+    ]
+  },
+  "refactor_config": {
+    "family": "refactor",
+    "category": "se_refactor",
+    "check_type": "file_code_exec",
+    "expected": "ugly.py\ncheck(\"valid cfg\",\n      mod.validate({\"name\": \"api\", \"port\": 8080, \"hosts\": [\"a\"]}) == [])\ncheck(\"missing name once\", mod.validate({\"port\": 8080}).count(\"missing name\") == 1)\ncheck(\"port type\", mod.validate({\"name\": \"x\", \"port\": \"8080\"})\n      == [\"port must be int\"])\ncheck(\"empty hosts once\",\n      mod.validate({\"name\": \"x\", \"port\": 1, \"hosts\": []}).count(\"hosts empty\") == 1)\ncheck(\"all problems\", sorted(mod.validate({}))\n      == sorted([\"missing name\", \"port must be int\"]))\ncheck(\"no globals leak\", mod.validate({\"name\": \"a\", \"port\": 1}) == [])\n",
+    "threshold": 0.7,
+    "rubric": "refactor (medium): correct, working solution that satisfies every automated check.",
+    "banned": [
+      "global ",
+      "_errs"
+    ]
+  },
+  "refactor_logs": {
+    "family": "refactor",
+    "category": "se_refactor",
+    "check_type": "file_code_exec",
+    "expected": "ugly.py\nlogs = [\"2024-01-01 ERROR boot\", \"2024-01-01 WARN slow\",\n         \"2024-01-01 ERROR retry\", \"2024-01-01 INFO ok\"]\ncheck(\"counts levels\", mod.summarize(logs) == [\"ERROR:2\", \"INFO:1\", \"WARN:1\"])\ncheck(\"empty\", mod.summarize([]) == [])\ncheck(\"single\", mod.summarize([\"2024-01-01 ERROR x\"]) == [\"ERROR:1\"])\n",
+    "threshold": 0.7,
+    "rubric": "refactor (medium): correct, working solution that satisfies every automated check.",
+    "banned": [
+      "global ",
+      "_counts"
+    ]
+  },
+  "fastapi_todos": {
+    "family": "fastapi_setup",
+    "category": "se_fastapi_setup",
+    "check_type": "file_contains",
+    "expected": "app.py|from fastapi import FastAPI, HTTPException\napp.py|app = FastAPI(\napp.py|@app.get(\"/todos\"\napp.py|@app.get(\"/todos/{todo_id}\"\napp.py|@app.post(\"/todos\"\napp.py|@app.delete(\"/todos/{todo_id}\"\napp.py|raise HTTPException(status_code=404\nrequirements.txt|fastapi",
+    "threshold": 0.7,
+    "rubric": "fastapi_setup (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "fastapi_catalog": {
+    "family": "fastapi_setup",
+    "category": "se_fastapi_setup",
+    "check_type": "file_contains",
+    "expected": "app.py|from fastapi import FastAPI, HTTPException\napp.py|app = FastAPI(\napp.py|@app.get(\"/items\"\napp.py|@app.get(\"/items/{item_id}\"\napp.py|@app.get(\"/items/search\"\napp.py|raise HTTPException(status_code=404\napp.py|data.json\nrequirements.txt|fastapi",
+    "threshold": 0.7,
+    "rubric": "fastapi_setup (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "fastapi_orders": {
+    "family": "fastapi_setup",
+    "category": "se_fastapi_setup",
+    "check_type": "file_contains",
+    "expected": "app.py|from fastapi import FastAPI, HTTPException\napp.py|app = FastAPI(\napp.py|@app.get(\"/orders\"\napp.py|@app.get(\"/orders/{order_id}\"\napp.py|@app.post(\"/orders\"\napp.py|raise HTTPException(status_code=404\napp.py|\"total\"\nrequirements.txt|fastapi",
+    "threshold": 0.7,
+    "rubric": "fastapi_setup (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "docker_flask_api": {
+    "family": "docker_configure",
+    "category": "se_docker_configure",
+    "check_type": "file_contains",
+    "expected": "Dockerfile|FROM python:3.11-slim\nDockerfile|WORKDIR /app\nDockerfile|COPY\nDockerfile|RUN pip install\nDockerfile|CMD\nDockerfile|EXPOSE 5000\ndocker-compose.yml|services:\ndocker-compose.yml|build:\ndocker-compose.yml|ports:\ndocker-compose.yml|5000",
+    "threshold": 0.7,
+    "rubric": "docker_configure (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "docker_streamlit_dashboard": {
+    "family": "docker_configure",
+    "category": "se_docker_configure",
+    "check_type": "file_contains",
+    "expected": "Dockerfile|FROM python:3.11-slim\nDockerfile|WORKDIR /app\nDockerfile|COPY\nDockerfile|RUN pip install\nDockerfile|CMD\nDockerfile|EXPOSE 8501\ndocker-compose.yml|services:\ndocker-compose.yml|build:\ndocker-compose.yml|ports:\ndocker-compose.yml|8501",
+    "threshold": 0.7,
+    "rubric": "docker_configure (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "docker_cron_worker": {
+    "family": "docker_configure",
+    "category": "se_docker_configure",
+    "check_type": "file_contains",
+    "expected": "Dockerfile|FROM python:3.11-slim\nDockerfile|WORKDIR /app\nDockerfile|COPY\nDockerfile|RUN pip install\nDockerfile|CMD\ndocker-compose.yml|services:\ndocker-compose.yml|build:\ndocker-compose.yml|restart:",
+    "threshold": 0.7,
+    "rubric": "docker_configure (medium): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "write_tests_banking": {
+    "family": "write_tests",
+    "category": "se_write_tests",
+    "check_type": "test_suite",
+    "expected": "GOOD_MODULE=good.py\nBUGGY_MODULE=buggy.py",
+    "threshold": 0.7,
+    "rubric": "write_tests (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "write_tests_cart": {
+    "family": "write_tests",
+    "category": "se_write_tests",
+    "check_type": "test_suite",
+    "expected": "GOOD_MODULE=good.py\nBUGGY_MODULE=buggy.py",
+    "threshold": 0.7,
+    "rubric": "write_tests (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "write_tests_urlparser": {
+    "family": "write_tests",
+    "category": "se_write_tests",
+    "check_type": "test_suite",
+    "expected": "GOOD_MODULE=good.py\nBUGGY_MODULE=buggy.py",
+    "threshold": 0.7,
+    "rubric": "write_tests (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "write_tests_stats": {
+    "family": "write_tests",
+    "category": "se_write_tests",
+    "check_type": "test_suite",
+    "expected": "GOOD_MODULE=good.py\nBUGGY_MODULE=buggy.py",
+    "threshold": 0.7,
+    "rubric": "write_tests (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "write_tests_temperature": {
+    "family": "write_tests",
+    "category": "se_write_tests",
+    "check_type": "test_suite",
+    "expected": "GOOD_MODULE=good.py\nBUGGY_MODULE=buggy.py",
+    "threshold": 0.7,
+    "rubric": "write_tests (hard): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "cli_sales": {
+    "family": "cli_tool",
+    "category": "se_cli_tool",
+    "check_type": "command_check",
+    "expected": "CMD:python cli.py --input orders.csv --top 2\nWidget:10.50\nGadget:4.00",
+    "threshold": 0.7,
+    "rubric": "cli_tool (complex): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "cli_filter": {
+    "family": "cli_tool",
+    "category": "se_cli_tool",
+    "check_type": "command_check",
+    "expected": "CMD:python cli.py --input people.csv --min-age 30 --job engineer\nAlice\nDave",
+    "threshold": 0.7,
+    "rubric": "cli_tool (complex): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "cli_json_pretty": {
+    "family": "cli_tool",
+    "category": "se_cli_tool",
+    "check_type": "command_check",
+    "expected": "CMD:python cli.py --input config.json --sort\n{\n\"a\": true,\n\"y\": [\n1,\n2\n],\n\"z\": {\n\"a\": 1,\n\"b\": 2\n}\n}",
+    "threshold": 0.7,
+    "rubric": "cli_tool (complex): correct, working solution that satisfies every automated check.",
+    "banned": []
+  },
+  "cli_word_freq": {
+    "family": "cli_tool",
+    "category": "se_cli_tool",
+    "check_type": "command_check",
+    "expected": "CMD:python cli.py --input text.txt --top 3\nthe:4\ncat:2\ndog:2",
+    "threshold": 0.7,
+    "rubric": "cli_tool (complex): correct, working solution that satisfies every automated check.",
+    "banned": []
+  }
+}

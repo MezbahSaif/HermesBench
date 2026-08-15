@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build: .
+    container_name: streamlit-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data/logs:/data/logs
+      - ./data/output:/data/output
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8501/_stcore/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

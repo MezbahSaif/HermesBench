@@ -14,23 +14,16 @@ class LRUCache:
         self.cache = OrderedDict()
 
     def get(self, key: int) -> int:
-        """Return value if key exists and is within capacity, else -1.
-        Refreshes recency by moving accessed key to end (most recent)."""
-        if key not in self.cache:
-            return -1
-        # Move accessed key to end (most recently used)
-        self.cache.move_to_end(key)
-        return self.cache[key]
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            return self.cache[key]
+        return -1
 
     def put(self, key: int, value: int) -> None:
-        """Insert or update key-value. Evict LRU entry if at capacity."""
         if key in self.cache:
-            # Update existing key and move to end (most recently used)
             self.cache.move_to_end(key)
             self.cache[key] = value
         else:
-            # New key - check capacity
-            if len(self.cache) >= self.capacity:
-                # Remove least recently used (first item)
-                self.cache.popitem(last=False)
             self.cache[key] = value
+            if len(self.cache) > self.capacity:
+                self.cache.popitem(last=False)

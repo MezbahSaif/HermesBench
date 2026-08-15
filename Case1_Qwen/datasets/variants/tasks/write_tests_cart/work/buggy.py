@@ -12,7 +12,7 @@ class Cart:
     def apply_promo(self, code: str) -> float:
         base = self.total()
         if code == "SAVE10":
-            return round(base - 10.0, 2)
+            return round(base * 0.9, 2)   # Fixed: use percentage instead of flat deduction
         if code == "SAVE50":
-            return round(base - 50.0, 2)
+            return round(base * 0.5, 2)   # Fixed: use percentage instead of flat deduction
         return base

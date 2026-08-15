@@ -14,11 +14,13 @@ case4:
     test_csv: "datasets/case4_test.csv"
   gepa:
     auto: "light"
-    max_metric_calls: 100
+    max_metric_calls: 15    # Hard budget limit on total Hermes runs
+    num_threads: 1
   mipro:
-    auto: "light"
-    max_metric_calls: 150
+    auto: None
     num_candidates: 6
+    num_trials: 3
+    num_threads: 1
   base_prompt_template: |
     You are Hermes. Solve the following coding task:
     Task ID: {task_id}

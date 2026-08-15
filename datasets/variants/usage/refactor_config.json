@@ -1,0 +1,18 @@
+{
+  "estimated_cost_usd": 0.0,
+  "cost_status": "unknown",
+  "cost_source": "none",
+  "input_tokens": 1161229,
+  "output_tokens": 21116,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "reasoning_tokens": 5954,
+  "total_tokens": 1182345,
+  "api_calls": 44,
+  "model": "qwen/qwen3.5-9b",
+  "provider": "lmstudio",
+  "session_id": "20260815_013311_a1bd4e",
+  "completed": true,
+  "failed": false,
+  "service_tier": null
+}

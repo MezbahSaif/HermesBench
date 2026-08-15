@@ -76,3 +76,6 @@ desktop.ini
 **/com1
 **/lpt1
 
+
+# Hermes runtime state database
+state.db

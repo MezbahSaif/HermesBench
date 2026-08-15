@@ -1,0 +1,4 @@
+tok INFO started
+tok ERROR failed
+tok INFO continued
+tok WARN slow

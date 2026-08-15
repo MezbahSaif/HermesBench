@@ -43,9 +43,9 @@ def apply_bulk_discount(subtotal: float, min_amount: float = 500.0,
                         rate: float = 0.10) -> float:
     """Subtotals at or above min_amount get rate % off."""
     if subtotal >= min_amount:
-        return subtotal * (1.0 - rate)
-    return subtotal
+        return round(subtotal * (1.0 - rate), 2)
+    return round(subtotal, 2)
 
 
-def compute_tax(amount: float, tax_rate: float = 0.25) -> float:
+def compute_tax(amount: float, tax_rate: float = 0.10) -> float:
     return round(amount * tax_rate, 2)

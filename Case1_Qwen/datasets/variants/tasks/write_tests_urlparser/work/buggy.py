@@ -6,7 +6,7 @@ def parse_query(url: str) -> dict:
     if "?" not in url:
         return {}
     _, _, qs = url.partition("?")
-    return {k: v[0] for k, v in parse_qs(qs).items()}
+    return {k: v for k, v in parse_qs(qs).items()}
 
 
 def path_of(url: str) -> str:

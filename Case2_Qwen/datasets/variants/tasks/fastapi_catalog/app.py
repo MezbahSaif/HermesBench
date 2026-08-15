@@ -11,7 +11,14 @@ import json
 with open("data.json", "r") as f:
     initial_data = json.load(f)
 
-items = {item["id"]: item for item in initial_data}
+items = {
+    item["id"]: {
+        "id": item["id"],
+        "name": item["name"],
+        "price": float(item["price"]),
+    }
+    for item in initial_data
+}
 next_id = max(items.keys()) + 1 if items else 1
 
 
@@ -30,6 +37,14 @@ class ItemResponse(BaseModel):
 def list_items():
     """Return all items in the catalog."""
     return list(items.values())
+
+
+@app.get("/items/search")
+def search_items(q: str):
+    """Search items by name (case-insensitive substring match)."""
+    query_lower = q.lower()
+    matches = [item for item in items.values() if query_lower in item["name"].lower()]
+    return matches
 
 
 @app.get("/items/{item_id}", response_model=ItemResponse)
@@ -52,11 +67,3 @@ def create_item(item: ItemCreate):
     result = items[next_id]
     next_id += 1
     return result
-
-
-@app.get("/search")
-def search_items(q: str):
-    """Search items by name (case-insensitive substring match)."""
-    query_lower = q.lower()
-    matches = [item for item in items.values() if query_lower in item["name"].lower()]
-    return matches

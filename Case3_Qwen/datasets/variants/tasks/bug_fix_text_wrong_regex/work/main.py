@@ -20,6 +20,6 @@ def word_frequency(text: str, min_len: int = 3) -> dict[str, int]:
 
 
 def sentence_split(text: str) -> list[str]:
-    """Split on periods, exclamation marks, and question marks."""
-    pieces = re.split(r"(?<=[.!?])\s+", text.strip())
+    """Naive splitter (buggy): only '!' and '?' split."""
+    pieces = re.split(r"(?<=[?.!])\s+", text.strip())
     return [p for p in pieces if p]
